@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Generator Mapy Myśli</title>
+  <style>
+    /* Ogólny układ – lewy panel z polem tekstowym, prawy panel z mapą */
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      height: 100vh;
+      font-family: sans-serif;
+    }
+    #input-area {
+      width: 40%;
+      padding: 10px;
+      box-sizing: border-box;
+      border-right: 1px solid #ccc;
+    }
+    #map-area {
+      width: 60%;
+      position: relative;
+      overflow: auto;
+      background-color: #f7f7f7;
+      cursor: grab;
+    }
+    textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      font-family: monospace;
+      font-size: 16px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    /* Kontener mapy – będzie skalowany przy zoomie */
+    #map-container {
+      position: relative;
+      transform-origin: top left;
+    }
+    /* Styl węzła mapy */
+    .node {
+      position: absolute;
+      padding: 5px 10px;
+      background: #fff;
+      border: 1px solid #333;
+      border-radius: 4px;
+      /* Zapobiegamy wyjściu długiego tekstu poza klocek */
+      max-width: 150px;
+      word-wrap: break-word;
+      white-space: normal;
+      cursor: move; /* Wskaźnik sugerujący możliwość przeciągania */
+    }
+    /* SVG z liniami – kliknięcia przechodzą do warstwy poniżej */
+    svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Panel wprowadzania tekstu -->
+  <div id="input-area">
+    <textarea id="input-text" placeholder="Wpisz strukturę mapy, używaj Tab dla wcięcia (2 spacje)
+Przykład:
+Temat główny
+··Podtemat 1
+··Podtemat 2
+····Szczegół"></textarea>
+  </div>
+  <!-- Panel wizualizacji mapy -->
+  <div id="map-area">
+    <div id="map-container"></div>
+  </div>
+
+  <script>
+    /********************
+     * Globalne zmienne dla obsługi dynamicznych linii i przeciągania
+     ********************/
+    let globalNodeElements = {}; // mapa node.id -> element DOM
+    let globalNodesFlat = [];    // spłaszczona struktura drzewa
+    let globalSVG = null;        // referencja do SVG z liniami
+    let draggedNode = null;      // aktualnie przeciągany klocek
+
+    /********************
+     * Obsługa wcięć w polu tekstowym
+     ********************/
+    const inputText = document.getElementById('input-text');
+    inputText.addEventListener('keydown', function(e) {
+      // Wstawianie Tab – dodajemy 2 spacje
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        let start = this.selectionStart;
+        let end = this.selectionEnd;
+        let value = this.value;
+        this.value = value.substring(0, start) + '  ' + value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 2;
+        renderMindMap();
+      }
+      // Obsługa Backspace – jeżeli przed kursorem są dokładnie 2 spacje, usuń je razem
+      else if (e.key === 'Backspace') {
+        let start = this.selectionStart;
+        let end = this.selectionEnd;
+        if (start === end && start >= 2) {
+          let value = this.value;
+          if (value.substring(start - 2, start) === '  ') {
+            e.preventDefault();
+            this.value = value.substring(0, start - 2) + value.substring(end);
+            this.selectionStart = this.selectionEnd = start - 2;
+            renderMindMap();
+          }
+        }
+      }
+      // Utrzymywanie poziomu wcięcia po naciśnięciu Enter
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        let start = this.selectionStart;
+        let end = this.selectionEnd;
+        let value = this.value;
+        // Znajdź początek bieżącej linii
+        let lastLineBreak = value.lastIndexOf('\n', start - 1);
+        let lineStart = lastLineBreak + 1;
+        let currentLine = value.substring(lineStart, start);
+        // Pobierz wcięcie (wszystkie białe znaki na początku linii)
+        let indentMatch = currentLine.match(/^\s*/);
+        let indent = indentMatch ? indentMatch[0] : '';
+        let insertText = '\n' + indent;
+        this.value = value.substring(0, start) + insertText + value.substring(end);
+        // Ustaw kursor na końcu wstawionego tekstu
+        let cursorPos = start + insertText.length;
+        this.selectionStart = this.selectionEnd = cursorPos;
+        renderMindMap();
+      }
+    });
+
+    // Aktualizacja mapy przy każdej zmianie
+    inputText.addEventListener('input', renderMindMap);
+
+    /********************
+     * Parsowanie tekstu na strukturę drzewa
+     ********************/
+    function buildTree(text) {
+      const lines = text.split('\n');
+      const rootNodes = [];
+      const stack = [];
+      let nodeId = 0;
+
+      lines.forEach(line => {
+        if (line.trim() === '') return; // pomijamy puste linie
+        // Oblicz liczbę początkowych spacji
+        const match = line.match(/^(\s*)/);
+        const spaces = match ? match[0].length : 0;
+        const level = Math.floor(spaces / 2); // każde 2 spacje = jeden poziom
+        const node = {
+          id: nodeId++,
+          text: line.trim(),
+          level: level,
+          parent: null,
+          children: []
+        };
+        if (stack.length === 0) {
+          rootNodes.push(node);
+          stack.push(node);
+        } else {
+          // Szukamy ostatniego węzła o niższym poziomie
+          while (stack.length && stack[stack.length - 1].level >= level) {
+            stack.pop();
+          }
+          if (stack.length) {
+            node.parent = stack[stack.length - 1];
+            stack[stack.length - 1].children.push(node);
+          } else {
+            rootNodes.push(node);
+          }
+          stack.push(node);
+        }
+      });
+      return rootNodes;
+    }
+
+    /********************
+     * Obliczanie pozycji węzłów – prosty algorytm układu drzewa
+     ********************/
+    const horizontalSpacing = 200; // odstęp poziomy w zależności od poziomu
+    const verticalSpacing = 70;    // odstęp pionowy między węzłami
+
+    // Funkcja rekurencyjna – ustawia x oraz y dla każdego węzła
+    function layoutTree(nodes, currentY) {
+      nodes.forEach(node => {
+        // Ustawienie pozycji: zawsze pozostawiamy root na stałej pozycji X = 20
+        // Pozostałe węzły są przesunięte w prawo o poziom * horizontalSpacing
+        node.x = node.level === 0 ? 20 : node.level * horizontalSpacing + 20;
+        if (node.children.length > 0) {
+          const startY = currentY;
+          // Rekurencyjnie układamy dzieci
+          currentY = layoutTree(node.children, currentY);
+          // Ustawiamy pozycję rodzica na środku między pierwszym a ostatnim dzieckiem
+          const firstChildY = node.children[0].y;
+          const lastChildY = node.children[node.children.length - 1].y;
+          node.y = (firstChildY + lastChildY) / 2;
+        } else {
+          node.y = currentY;
+          currentY += verticalSpacing;
+        }
+      });
+      return currentY;
+    }
+
+    // Spłaszczenie drzewa do listy – ułatwia rysowanie węzłów i linii
+    function flattenTree(nodes) {
+      let arr = [];
+      nodes.forEach(node => {
+        arr.push(node);
+        if (node.children.length > 0) {
+          arr = arr.concat(flattenTree(node.children));
+        }
+      });
+      return arr;
+    }
+
+    /********************
+     * Funkcja rysująca linie między węzłami
+     ********************/
+    function drawLines(nodeElements, nodesFlat, svg) {
+      // Najpierw czyścimy zawartość SVG
+      while (svg.firstChild) {
+        svg.removeChild(svg.firstChild);
+      }
+      const gap = 10; // odstęp między węzłem a linią
+      nodesFlat.forEach(node => {
+        if (node.parent !== null) {
+          const parentElem = nodeElements[node.parent.id];
+          const childElem = nodeElements[node.id];
+          if (parentElem && childElem) {
+            const parentRightX = parentElem.offsetLeft + parentElem.offsetWidth;
+            const parentCenterY = parentElem.offsetTop + parentElem.offsetHeight / 2;
+            const childLeftX = childElem.offsetLeft;
+            const childCenterY = childElem.offsetTop + childElem.offsetHeight / 2;
+
+            const points = [
+              [parentRightX, parentCenterY],
+              [parentRightX + gap, parentCenterY],
+              [parentRightX + gap, childCenterY],
+              [childLeftX - gap, childCenterY]
+            ].map(pair => pair.join(',')).join(' ');
+
+            const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            polyline.setAttribute("points", points);
+            polyline.setAttribute("stroke", "#333");
+            polyline.setAttribute("stroke-width", "2");
+            polyline.setAttribute("fill", "none");
+            svg.appendChild(polyline);
+          }
+        }
+      });
+    }
+
+    /********************
+     * Funkcja rozwiązująca kolizje (nakładanie się) klocków
+     * Zapewnia, że żadne dwa elementy .node nie nachodzą na siebie,
+     * nawet gdy tekst powoduje zwiększenie wysokości klocka.
+     ********************/
+    function resolveCollisions() {
+      const nodes = Array.from(document.getElementsByClassName('node'));
+      const margin = 10; // dodatkowy odstęp między klockami
+      let changed;
+      do {
+        changed = false;
+        // Sortujemy elementy po ich pozycji pionowej
+        nodes.sort((a, b) => a.offsetTop - b.offsetTop);
+        for (let i = 0; i < nodes.length; i++) {
+          const rectA = nodes[i].getBoundingClientRect();
+          for (let j = i + 1; j < nodes.length; j++) {
+            const rectB = nodes[j].getBoundingClientRect();
+            // Sprawdzamy, czy elementy nachodzą na siebie w poziomie
+            if (rectA.right > rectB.left && rectA.left < rectB.right) {
+              // Jeśli nachodzą również pionowo, przesuwamy dolniejszy element
+              if (rectA.bottom > rectB.top) {
+                const overlap = rectA.bottom - rectB.top + margin;
+                const currentTop = parseFloat(nodes[j].style.top);
+                const newTop = currentTop + overlap;
+                nodes[j].style.top = newTop + 'px';
+                // Aktualizujemy pozycję w modelu węzła (jeśli dostępny)
+                if (nodes[j]._mindMapNode) {
+                  nodes[j]._mindMapNode.y = newTop;
+                }
+                changed = true;
+              }
+            }
+          }
+        }
+      } while (changed);
+    }
+
+    /********************
+     * Renderowanie mapy myśli
+     ********************/
+    function renderMindMap() {
+      const text = inputText.value;
+      const rootNodes = buildTree(text);
+      // Początkowa pozycja Y – margines górny
+      const startY = 20;
+      layoutTree(rootNodes, startY);
+      const nodesFlat = flattenTree(rootNodes);
+
+      const mapContainer = document.getElementById('map-container');
+      mapContainer.innerHTML = ''; // czyścimy poprzednią zawartość
+
+      // Dodajemy SVG do rysowania linii – początkowo ustawiamy rozmiary na minimalne, później przeliczamy
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.style.position = "absolute";
+      svg.style.top = "0";
+      svg.style.left = "0";
+      mapContainer.appendChild(svg);
+
+      // Utwórz węzły i zachowaj referencje (po id) dla obliczania pozycji przy rysowaniu linii
+      const nodeElements = {};
+      nodesFlat.forEach(node => {
+        const div = document.createElement('div');
+        div.className = 'node';
+        // Ustaw rozmiar czcionki w zależności od poziomu:
+        // Poziom 0: 36px, poziom 1: 24px, poziom >=2: 16px
+        if (node.level === 0) {
+          div.style.fontSize = '36px';
+        } else if (node.level === 1) {
+          div.style.fontSize = '24px';
+        } else {
+          div.style.fontSize = '16px';
+        }
+        div.textContent = node.text;
+        div.style.left = node.x + 'px';
+        div.style.top = node.y + 'px';
+        mapContainer.appendChild(div);
+        nodeElements[node.id] = div;
+
+        // Przechowujemy referencję do modelu węzła w elemencie, aby mieć do niego dostęp przy przeciąganiu
+        div._mindMapNode = node;
+
+        // Dodajemy obsługę przeciągania klocka
+        div.addEventListener('mousedown', function(e) {
+          // Zapobiegamy wywołaniu panningu mapy
+          e.stopPropagation();
+          draggedNode = {
+            element: div,
+            node: node,
+            offsetX: e.offsetX,
+            offsetY: e.offsetY
+          };
+        });
+      });
+
+      // Wywołujemy funkcję rozwiązywania kolizji, aby upewnić się, że klocki się nie nachodzą,
+      // szczególnie gdy tekst powoduje zwiększenie wysokości elementu.
+      resolveCollisions();
+
+      // Dodatkowa funkcjonalność:
+      // Przesuń pierwszy (root) klocek mapy, aby był wyśrodkowany pionowo w panelu mapy po prawej stronie.
+      // Obliczamy offset na podstawie wysokości widocznego obszaru (uwzględniając zoom)
+      const mapArea = document.getElementById('map-area');
+      if (rootNodes.length > 0) {
+        const rootElem = nodeElements[rootNodes[0].id];
+        // Obliczamy środek root elementu
+        const rootCenter = rootElem.offsetTop + rootElem.offsetHeight / 2;
+        // Ustal widoczną wysokość kontenera w układzie nieskalowanym
+        const containerHeight = mapArea.clientHeight / zoomLevel;
+        const offset = (containerHeight / 2) - rootCenter;
+        // Przesuwamy wszystkie węzły o obliczony offset
+        nodesFlat.forEach(node => {
+          node.y += offset;
+          nodeElements[node.id].style.top = node.y + 'px';
+        });
+      }
+
+      // Po narysowaniu węzłów przeliczamy maksymalne rozmiary – aby SVG objęło całą mapę
+      let maxX = 0, maxY = 0;
+      Object.values(nodeElements).forEach(elem => {
+        const right = elem.offsetLeft + elem.offsetWidth;
+        const bottom = elem.offsetTop + elem.offsetHeight;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+      });
+      svg.setAttribute("width", maxX + 50);
+      svg.setAttribute("height", maxY + 50);
+
+      // Rysujemy linie łączące każdy węzeł z jego rodzicem z dodanymi przerwami dla lepszej czytelności
+      drawLines(nodeElements, nodesFlat, svg);
+
+      // Aktualizujemy globalne referencje, by przeciąganie mogło dynamicznie aktualizować linie
+      globalNodeElements = nodeElements;
+      globalNodesFlat = nodesFlat;
+      globalSVG = svg;
+    }
+
+    // Renderuj mapę przy ładowaniu strony
+    window.addEventListener('load', renderMindMap);
+
+    /********************
+     * Zoom – przybliżanie i oddalanie mapy
+     ********************/
+    let zoomLevel = 1;
+    function updateZoom() {
+      document.getElementById('map-container').style.transform = 'scale(' + zoomLevel + ')';
+    }
+
+    // Dodanie zoomu za pomocą scrolla myszki na panelu mapy
+    const mapArea = document.getElementById('map-area');
+    mapArea.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        zoomLevel += 0.1;
+      } else {
+        zoomLevel = Math.max(0.1, zoomLevel - 0.1);
+      }
+      updateZoom();
+    });
+
+    /********************
+     * Dodanie funkcji przeciągania (panning) mapy myśli przy użyciu myszy
+     ********************/
+    let isDragging = false;
+    let startX, startY, scrollLeft, scrollTop;
+    mapArea.addEventListener('mousedown', function(e) {
+      // Jeśli kliknięto na węzeł, nie rozpoczynamy panningu
+      if (e.target.classList.contains('node')) return;
+      isDragging = true;
+      startX = e.pageX - mapArea.offsetLeft;
+      startY = e.pageY - mapArea.offsetTop;
+      scrollLeft = mapArea.scrollLeft;
+      scrollTop = mapArea.scrollTop;
+      mapArea.style.cursor = 'grabbing';
+    });
+    mapArea.addEventListener('mouseleave', function() {
+      isDragging = false;
+      mapArea.style.cursor = 'grab';
+    });
+    mapArea.addEventListener('mouseup', function() {
+      isDragging = false;
+      mapArea.style.cursor = 'grab';
+    });
+    mapArea.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const x = e.pageX - mapArea.offsetLeft;
+      const y = e.pageY - mapArea.offsetTop;
+      const walkX = x - startX;
+      const walkY = y - startY;
+      mapArea.scrollLeft = scrollLeft - walkX;
+      mapArea.scrollTop = scrollTop - walkY;
+    });
+
+    /********************
+     * Obsługa przeciągania klocków oraz dynamiczna aktualizacja linii
+     ********************/
+    document.addEventListener('mousemove', function(e) {
+      if (draggedNode) {
+        const mapContainer = document.getElementById('map-container');
+        const containerRect = mapContainer.getBoundingClientRect();
+        // Obliczamy nową pozycję klocka, uwzględniając offset kliknięcia
+        const newLeft = e.clientX - containerRect.left - draggedNode.offsetX;
+        const newTop = e.clientY - containerRect.top - draggedNode.offsetY;
+        draggedNode.element.style.left = newLeft + 'px';
+        draggedNode.element.style.top = newTop + 'px';
+        // Aktualizujemy pozycję w modelu węzła
+        draggedNode.node.x = newLeft;
+        draggedNode.node.y = newTop;
+        // Dynamicznie aktualizujemy linie łączące węzły
+        if (globalSVG && globalNodeElements && globalNodesFlat.length > 0) {
+          drawLines(globalNodeElements, globalNodesFlat, globalSVG);
+        }
+      }
+    });
+    document.addEventListener('mouseup', function() {
+      if (draggedNode) {
+        draggedNode = null;
+      }
+    });
+  </script>
+</body>
+</html>
