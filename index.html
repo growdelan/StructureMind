@@ -1,482 +1,1566 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" data-theme="auto">
 <head>
-  <meta charset="UTF-8">
-  <title>Generator Mapy Myśli</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StructureMind — nowoczesny generator mapy myśli</title>
   <style>
-    /* Ogólny układ – lewy panel z polem tekstowym, prawy panel z mapą */
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      height: 100vh;
-      font-family: sans-serif;
+    :root{
+      --bg0:#0b0f17;
+      --bg1:#0f1626;
+      --panel:#121a2c;
+      --panel2:#0f1729;
+      --text:#e8eefc;
+      --muted:#9aa6c3;
+      --muted2:#6f7da0;
+      --border:rgba(255,255,255,.10);
+      --border2:rgba(255,255,255,.07);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --shadow2: 0 12px 60px rgba(0,0,0,.45);
+      --glow: 0 0 0 1px rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.25);
+      --accent:#7c5cff;
+      --accent2:#22d3ee;
+
+      --radius:18px;
+      --radius2:26px;
+      --gap:14px;
+      --indent:2; /* 2 spacje = 1 poziom */
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+
+      --node-bg: rgba(255,255,255,.05);
+      --node-bg2: rgba(255,255,255,.07);
+      --node-border: rgba(255,255,255,.14);
+      --node-shadow: 0 10px 26px rgba(0,0,0,.35);
+      --node-shadow-hover: 0 18px 50px rgba(0,0,0,.45);
+
+      --grid: rgba(255,255,255,.06);
+      --grid2: rgba(255,255,255,.03);
     }
-    #input-area {
-      width: 40%;
-      padding: 10px;
-      box-sizing: border-box;
-      border-right: 1px solid #ccc;
+
+    html[data-theme="light"]{
+      --bg0:#f6f8ff;
+      --bg1:#eef2ff;
+      --panel: rgba(255,255,255,.75);
+      --panel2: rgba(255,255,255,.60);
+      --text:#0b1020;
+      --muted:#51607f;
+      --muted2:#6a7897;
+      --border:rgba(10,20,40,.12);
+      --border2:rgba(10,20,40,.08);
+      --shadow: 0 10px 30px rgba(10,20,40,.12);
+      --shadow2: 0 12px 60px rgba(10,20,40,.14);
+      --glow: 0 0 0 1px rgba(10,20,40,.06), 0 10px 30px rgba(10,20,40,.10);
+
+      --node-bg: rgba(255,255,255,.75);
+      --node-bg2: rgba(255,255,255,.92);
+      --node-border: rgba(10,20,40,.13);
+
+      --grid: rgba(10,20,40,.07);
+      --grid2: rgba(10,20,40,.04);
     }
-    #map-area {
-      width: 60%;
-      position: relative;
-      overflow: auto;
-      background-color: #f7f7f7;
-      cursor: grab;
+
+    @media (prefers-color-scheme: light) {
+      html[data-theme="auto"]{
+        --bg0:#f6f8ff;
+        --bg1:#eef2ff;
+        --panel: rgba(255,255,255,.75);
+        --panel2: rgba(255,255,255,.60);
+        --text:#0b1020;
+        --muted:#51607f;
+        --muted2:#6a7897;
+        --border:rgba(10,20,40,.12);
+        --border2:rgba(10,20,40,.08);
+        --shadow: 0 10px 30px rgba(10,20,40,.12);
+        --shadow2: 0 12px 60px rgba(10,20,40,.14);
+        --glow: 0 0 0 1px rgba(10,20,40,.06), 0 10px 30px rgba(10,20,40,.10);
+
+        --node-bg: rgba(255,255,255,.75);
+        --node-bg2: rgba(255,255,255,.92);
+        --node-border: rgba(10,20,40,.13);
+
+        --grid: rgba(10,20,40,.07);
+        --grid2: rgba(10,20,40,.04);
+      }
     }
-    textarea {
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(124,92,255,.25), transparent 55%),
+                  radial-gradient(900px 600px at 85% 25%, rgba(34,211,238,.20), transparent 55%),
+                  linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow:hidden;
+    }
+
+    .app{
+      height:100%;
+      display:flex;
+      gap:0;
+      position:relative;
+    }
+
+    /* ✅ FIX #1: sidebar + editor card now truly stretch; textarea becomes large */
+    .sidebar{
+      width: 480px;            /* trochę większy domyślnie */
+      min-width: 280px;
+      max-width: 920px;        /* pozwala rozszerzyć bardziej */
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      padding: 18px;
+      gap: var(--gap);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border-right: 1px solid var(--border2);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      min-height: 0;
+    }
+    .sidebar > *{ min-width:0; } /* ważne przy zawijaniu i flex */
+
+    .resizer{
+      width: 10px;
+      cursor: col-resize;
+      position:relative;
+      background: transparent;
+    }
+    .resizer::before{
+      content:"";
+      position:absolute;
+      top:18px; bottom:18px;
+      left:50%;
+      width:2px;
+      transform:translateX(-50%);
+      border-radius:99px;
+      background: linear-gradient(180deg, transparent, var(--border), transparent);
+      opacity:.9;
+      transition: opacity .2s ease, width .2s ease;
+    }
+    .resizer:hover::before{ opacity:1; width:3px; }
+
+    .main{
+      flex:1;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-width:0;
+    }
+
+    .card{
+      background: var(--panel);
+      border:1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      overflow:hidden;
+    }
+
+    /* ✅ FIX #1: make the editor card fill remaining sidebar height */
+    .editorCard{
+      display:flex;
+      flex-direction:column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .cardHeader{
+      padding: 14px 14px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--border2);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), transparent);
+      flex: 0 0 auto;
+      min-width:0;
+    }
+    .titleWrap{
+      display:flex;
+      flex-direction:column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .title{
+      font-weight: 750;
+      letter-spacing: .2px;
+      font-size: 14px;
+      line-height: 1.2;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .subtitle{
+      font-size: 12px;
+      color: var(--muted);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .toolbar{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      color: var(--text);
+      padding: 9px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 650;
+      cursor:pointer;
+      transition: transform .12s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+      user-select:none;
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      box-shadow: var(--glow);
+      border-color: rgba(124,92,255,.35);
+    }
+    .btn:active{ transform: translateY(0); }
+    .btn.secondary{ background: transparent; }
+    .btn.accent{
+      border-color: rgba(124,92,255,.45);
+      background: linear-gradient(180deg, rgba(124,92,255,.22), rgba(124,92,255,.10));
+    }
+    .btn.ghost{
+      border-color: transparent;
+      background: transparent;
+    }
+
+    /* ✅ FIX #2: pills can wrap + never overflow into map */
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      border:1px solid var(--border2);
+      background: rgba(255,255,255,.04);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      user-select:none;
+
+      max-width: 100%;
+      min-width: 0;
+      white-space: normal;          /* allow wrapping */
+      flex-wrap: wrap;              /* wrap inside pill */
+      overflow-wrap: anywhere;      /* break long parts if needed */
+      line-height: 1.35;
+    }
+    .pill.nowrap{
+      white-space: nowrap;
+      flex-wrap: nowrap;
+      overflow-wrap: normal;
+    }
+
+    /* Editor */
+    .editorWrap{
+      display:flex;
+      flex:1;
+      min-height: 0;
+      padding: 12px;
+      background: var(--panel2);
+      overflow:hidden;
+    }
+    textarea{
       width: 100%;
       height: 100%;
-      resize: none;
-      font-family: monospace;
-      font-size: 16px;
-      padding: 10px;
-      box-sizing: border-box;
+      min-height: 320px;   /* jeśli coś pójdzie nie tak, nadal będzie sensowna wysokość */
+      resize: vertical;    /* “możliwość rozszerzenia” (w dół) */
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 12px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text);
+      background: rgba(0,0,0,.12);
+      outline:none;
+      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+      tab-size: 2;
+      -moz-tab-size: 2;
+      white-space: pre;
+      overflow:auto;
     }
-    /* Kontener mapy – będzie skalowany przy zoomie */
-    #map-container {
-      position: relative;
-      transform-origin: top left;
+    html[data-theme="light"] textarea,
+    html[data-theme="auto"] textarea{
+      background: rgba(255,255,255,.55);
     }
-    /* Styl węzła mapy */
-    .node {
-      position: absolute;
-      padding: 5px 10px;
-      background: #fff;
-      border: 1px solid #333;
-      border-radius: 4px;
-      /* Zapobiegamy wyjściu długiego tekstu poza klocek */
-      max-width: 150px;
+    textarea:focus{
+      border-color: rgba(124,92,255,.45);
+      box-shadow: 0 0 0 4px rgba(124,92,255,.15);
+    }
+
+    .hintRow{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      padding: 10px 14px 14px;
+      align-items:center;
+      justify-content:space-between;
+      color: var(--muted);
+      font-size: 12px;
+      flex: 0 0 auto;
+      border-top: 1px solid var(--border2);
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,.02));
+    }
+    .kbd{
+      display:inline-flex;
+      align-items:center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .kbd b{
+      font-family: var(--mono);
+      font-weight: 800;
+      border:1px solid var(--border2);
+      background: rgba(255,255,255,.04);
+      padding: 2px 6px;
+      border-radius: 8px;
+      color: var(--text);
+    }
+
+    /* Canvas */
+    .topbar{
+      padding: 14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      border-bottom:1px solid var(--border2);
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      min-width:0;
+    }
+    .topbarLeft{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .logo{
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      background: radial-gradient(10px 10px at 30% 30%, rgba(255,255,255,.35), transparent 60%),
+                  linear-gradient(135deg, rgba(124,92,255,.95), rgba(34,211,238,.85));
+      box-shadow: 0 10px 30px rgba(124,92,255,.18);
+      border:1px solid rgba(255,255,255,.18);
+      flex:none;
+    }
+    .brandText{
+      display:flex;
+      flex-direction:column;
+      gap: 2px;
+      min-width:0;
+    }
+    .brandText .h1{
+      font-size: 13px;
+      font-weight: 820;
+      letter-spacing: .2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .brandText .h2{
+      font-size: 12px;
+      color: var(--muted);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .viewport{
+      flex:1;
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(900px 600px at 20% 15%, rgba(124,92,255,.14), transparent 55%),
+        radial-gradient(900px 600px at 80% 20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      min-width:0;
+    }
+    .viewport::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background-image:
+        linear-gradient(to right, var(--grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid) 1px, transparent 1px),
+        linear-gradient(to right, var(--grid2) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid2) 1px, transparent 1px);
+      background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
+      background-position: 0 0, 0 0, 0 0, 0 0;
+      opacity:.85;
+      pointer-events:none;
+      mask-image: radial-gradient(800px 500px at 40% 35%, rgba(0,0,0,1), rgba(0,0,0,.25) 60%, rgba(0,0,0,0) 78%);
+    }
+
+    .world{
+      position:absolute;
+      left:0; top:0;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    svg#links{
+      position:absolute;
+      left:0; top:0;
+      overflow:visible;
+      pointer-events:none;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.22));
+    }
+    .linkPath{
+      fill:none;
+      stroke: rgba(255,255,255,.30);
+      stroke-width: 2.25;
+      stroke-linecap: round;
+    }
+    .linkPath.glow{
+      stroke: rgba(124,92,255,.18);
+      stroke-width: 7;
+      opacity:.9;
+    }
+    html[data-theme="light"] .linkPath{ stroke: rgba(10,20,40,.35); }
+    html[data-theme="light"] .linkPath.glow{ stroke: rgba(124,92,255,.22); }
+
+    #nodesLayer{
+      position:absolute;
+      left:0; top:0;
+    }
+    .node{
+      position:absolute;
+      border-radius: 16px;
+      border: 1px solid var(--node-border);
+      background: linear-gradient(180deg, var(--node-bg2), var(--node-bg));
+      box-shadow: var(--node-shadow);
+      padding: 10px 12px;
+      max-width: 320px;
+      min-width: 120px;
+      user-select:none;
+      cursor: grab;
+      transform: translate3d(var(--x,0px), var(--y,0px), 0) scale(.985);
+      opacity: 0;
+      transition:
+        transform 360ms cubic-bezier(.2,.8,.2,1),
+        opacity 340ms ease,
+        box-shadow 220ms ease,
+        border-color 220ms ease,
+        background 220ms ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .node.show{ opacity: 1; transform: translate3d(var(--x,0px), var(--y,0px), 0) scale(1); }
+    .node:hover{
+      box-shadow: var(--node-shadow-hover);
+      border-color: rgba(34,211,238,.25);
+    }
+    .node:active{ cursor: grabbing; }
+    .node.dragging{
+      transition: none !important;
+      opacity: 1;
+      transform: translate3d(var(--x,0px), var(--y,0px), 0) scale(1.02);
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+      border-color: rgba(124,92,255,.45);
+    }
+    .node.selected{
+      border-color: rgba(124,92,255,.55);
+      box-shadow: 0 18px 65px rgba(124,92,255,.18), 0 18px 70px rgba(0,0,0,.45);
+    }
+    .node .label{
+      display:block;
+      font-weight: 760;
+      letter-spacing: .1px;
+      line-height: 1.25;
       word-wrap: break-word;
       white-space: normal;
-      cursor: move; /* Wskaźnik sugerujący możliwość przeciągania */
     }
-    /* SVG z liniami – kliknięcia przechodzą do warstwy poniżej */
-    svg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
+    .node .meta{
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      opacity:.95;
+    }
+    .dot{
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(124,92,255,.9);
+      box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+      flex:none;
+    }
+
+    .lvl0 .label{ font-size: 22px; }
+    .lvl1 .label{ font-size: 16px; }
+    .lvl2 .label, .lvl3 .label, .lvl4 .label, .lvl5 .label{ font-size: 13px; font-weight: 700; }
+    .lvl0{ border-radius: 20px; padding: 12px 14px; }
+    .lvl0 .dot{ background: rgba(34,211,238,.95); box-shadow: 0 0 0 4px rgba(34,211,238,.18); }
+
+    .status{
+      position:absolute;
+      right: 16px;
+      bottom: 16px;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.28);
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      font-size: 12px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      user-select:none;
+      pointer-events:none;
+      max-width: min(560px, 90vw);
+      overflow-wrap:anywhere;
+    }
+    html[data-theme="light"] .status{
+      background: rgba(255,255,255,.75);
+    }
+
+    /* Modal */
+    .modalBackdrop{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modalBackdrop.show{ display:flex; }
+    .modal{
+      width: min(720px, 100%);
+      border-radius: var(--radius2);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+    }
+    .modal .modalBody{
+      padding: 16px 16px 18px;
+      color: var(--text);
+    }
+    .modal p{
+      margin: 0 0 10px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .modal ul{
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .modal li{ margin: 6px 0; }
+    .modal .row{
+      display:flex;
+      justify-content:flex-end;
+      gap: 10px;
+      padding: 12px 16px 16px;
+      border-top:1px solid var(--border2);
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,.03));
+    }
+
+    /* Mobile layout */
+    @media (max-width: 980px){
+      .app{ flex-direction:column; }
+      .sidebar{
+        width: 100%;
+        max-width:none;
+        height: 44%;
+        border-right:none;
+        border-bottom:1px solid var(--border2);
+      }
+      .resizer{ height: 10px; width:100%; cursor: row-resize; }
+      .resizer::before{ left: 18px; right: 18px; top:50%; height:2px; width:auto; transform:translateY(-50%); }
+      textarea{ min-height: 220px; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; }
     }
   </style>
 </head>
+
 <body>
-  <!-- Panel wprowadzania tekstu -->
-  <div id="input-area">
-    <textarea id="input-text" placeholder="Wpisz strukturę mapy, używaj Tab dla wcięcia (2 spacje)
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <!-- ✅ FIX #1: editorCard is flex and fills sidebar -->
+      <div class="card editorCard">
+        <div class="cardHeader">
+          <div class="titleWrap">
+            <div class="title">Edytor struktury</div>
+            <div class="subtitle">Wcięcia: <b>2 spacje</b> = poziom</div>
+          </div>
+          <div class="toolbar">
+            <button class="btn secondary" id="btnExample" title="Wstaw przykład">Przykład</button>
+            <button class="btn ghost" id="btnHelp" title="Skróty i wskazówki">Pomoc</button>
+          </div>
+        </div>
+
+        <div class="editorWrap">
+          <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Wpisz strukturę mapy.
+Używaj TAB aby zwiększyć wcięcie, SHIFT+TAB aby zmniejszyć.
+
 Przykład:
 Temat główny
-··Podtemat 1
-··Podtemat 2
-····Szczegół"></textarea>
+  Podtemat 1
+  Podtemat 2
+    Szczegół"></textarea>
+        </div>
+
+        <div class="hintRow">
+          <div class="kbd"><b>Tab</b> wcięcie • <b>Shift</b>+<b>Tab</b> cofnięcie</div>
+          <div class="kbd"><b>Ctrl</b>+<b>0</b> dopasuj widok • <b>?</b> pomoc</div>
+        </div>
+      </div>
+
+      <!-- ✅ FIX #2: this pill wraps and stays inside sidebar -->
+      <div class="pill" title="Wskazówka">
+        🟣 Kliknij węzeł, aby zaznaczyć odpowiadającą linię w edytorze. Przeciągnij węzeł, aby go ręcznie przesunąć (linie aktualizują się na żywo).
+      </div>
+    </aside>
+
+    <div class="resizer" id="resizer" aria-hidden="true"></div>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="topbar">
+        <div class="topbarLeft">
+          <div class="brand">
+            <div class="logo" aria-hidden="true"></div>
+            <div class="brandText">
+              <div class="h1">StructureMind</div>
+              <div class="h2" id="statsText">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <span class="pill nowrap" id="zoomPill">Zoom: 100%</span>
+          <button class="btn secondary" id="btnZoomOut" title="Oddal">−</button>
+          <button class="btn secondary" id="btnZoomIn" title="Przybliż">+</button>
+          <button class="btn accent" id="btnFit" title="Dopasuj do ekranu (Ctrl+0)">Dopasuj</button>
+          <button class="btn secondary" id="btnCenter" title="Wycentruj temat główny">Centruj</button>
+          <button class="btn secondary" id="btnTheme" title="Zmień motyw">Motyw</button>
+        </div>
+      </div>
+
+      <div class="viewport" id="viewport">
+        <div class="world" id="world">
+          <svg id="links" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="nodesLayer"></div>
+        </div>
+
+        <div class="status" id="status">
+          <span id="statusMsg">Przeciąganie: tło = panorama • kółko = zoom</span>
+        </div>
+      </div>
+    </main>
   </div>
-  <!-- Panel wizualizacji mapy -->
-  <div id="map-area">
-    <div id="map-container"></div>
+
+  <!-- HELP MODAL -->
+  <div class="modalBackdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-label="Pomoc">
+    <div class="modal">
+      <div class="cardHeader">
+        <div class="titleWrap">
+          <div class="title">Pomoc & skróty</div>
+          <div class="subtitle">Jedno-plikowa aplikacja — bez instalacji</div>
+        </div>
+        <div class="toolbar">
+          <button class="btn" id="btnCloseHelp">Zamknij</button>
+        </div>
+      </div>
+      <div class="modalBody">
+        <p>
+          Edytujesz strukturę tekstową po lewej, a mapa renderuje się natychmiast po prawej.
+          Wcięcia (2 spacje) oznaczają poziom zagnieżdżenia.
+        </p>
+        <ul>
+          <li><b>Tab</b> / <b>Shift+Tab</b>: wcięcie / cofnięcie wcięcia (działa też dla zaznaczenia wielu linii)</li>
+          <li><b>Enter</b>: zachowuje wcięcie z bieżącej linii</li>
+          <li><b>Kółko myszy</b>: zoom w miejscu kursora</li>
+          <li><b>Przeciągnij tło</b>: panorama (panning)</li>
+          <li><b>Przeciągnij węzeł</b>: ręczne przesuwanie, linie aktualizują się na żywo</li>
+          <li><b>Ctrl+0</b>: dopasuj mapę do ekranu</li>
+          <li><b>Klik węzeł</b>: zaznacza odpowiednią linię w edytorze</li>
+        </ul>
+      </div>
+      <div class="row">
+        <button class="btn secondary" id="btnInsertExample2">Wstaw przykład</button>
+        <button class="btn accent" id="btnCloseHelp2">OK</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    /********************
-     * Globalne zmienne dla obsługi dynamicznych linii i przeciągania
-     ********************/
-    let globalNodeElements = {}; // mapa node.id -> element DOM
-    let globalNodesFlat = [];    // spłaszczona struktura drzewa
-    let globalSVG = null;        // referencja do SVG z liniami
-    let draggedNode = null;      // aktualnie przeciągany klocek
+    (() => {
+      "use strict";
 
-    /********************
-     * Obsługa wcięć w polu tekstowym
-     ********************/
-    const inputText = document.getElementById('input-text');
-    inputText.addEventListener('keydown', function(e) {
-      // Wstawianie Tab – dodajemy 2 spacje
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        let start = this.selectionStart;
-        let end = this.selectionEnd;
-        let value = this.value;
-        this.value = value.substring(0, start) + '  ' + value.substring(end);
-        this.selectionStart = this.selectionEnd = start + 2;
-        renderMindMap();
+      /**********************
+       * DOM
+       **********************/
+      const editor = document.getElementById("editor");
+      const viewport = document.getElementById("viewport");
+      const world = document.getElementById("world");
+      const linksSvg = document.getElementById("links");
+      const nodesLayer = document.getElementById("nodesLayer");
+      const statsText = document.getElementById("statsText");
+      const zoomPill = document.getElementById("zoomPill");
+
+      const btnExample = document.getElementById("btnExample");
+      const btnHelp = document.getElementById("btnHelp");
+      const btnFit = document.getElementById("btnFit");
+      const btnCenter = document.getElementById("btnCenter");
+      const btnZoomIn = document.getElementById("btnZoomIn");
+      const btnZoomOut = document.getElementById("btnZoomOut");
+      const btnTheme = document.getElementById("btnTheme");
+
+      const modalBackdrop = document.getElementById("modalBackdrop");
+      const btnCloseHelp = document.getElementById("btnCloseHelp");
+      const btnCloseHelp2 = document.getElementById("btnCloseHelp2");
+      const btnInsertExample2 = document.getElementById("btnInsertExample2");
+
+      const sidebar = document.getElementById("sidebar");
+      const resizer = document.getElementById("resizer");
+
+      /**********************
+       * State
+       **********************/
+      const LS_TEXT = "structureMind:text:v2";
+      const LS_THEME = "structureMind:theme:v2";
+      const LS_SIDEBAR = "structureMind:sidebarWidth:v2";
+
+      const INDENT = 2; // 2 spacje = poziom
+      const GAP_X = 120;
+      const GAP_Y = 26;
+      const ROOT_MARGIN = 54;
+
+      let renderQueued = false;
+      let lastTree = null;
+      let flatNodes = [];
+      let nodeElById = new Map();
+      let pathElByKey = new Map();
+      let selectedId = null;
+
+      const cam = { x:0, y:0, z:1, tx:0, ty:0, tz:1 };
+
+      const interaction = {
+        mode: "none",
+        pointerId: null,
+        startVx: 0, startVy: 0,
+        startTx: 0, startTy: 0,
+        moved: false,
+        nodeId: null,
+        nodeStartX: 0, nodeStartY: 0,
+        nodeOffX: 0, nodeOffY: 0
+      };
+
+      const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+      const raf = (fn) => requestAnimationFrame(fn);
+
+      function setTheme(mode){
+        document.documentElement.setAttribute("data-theme", mode);
+        localStorage.setItem(LS_THEME, mode);
       }
-      // Obsługa Backspace – jeżeli przed kursorem są dokładnie 2 spacje, usuń je razem
-      else if (e.key === 'Backspace') {
-        let start = this.selectionStart;
-        let end = this.selectionEnd;
-        if (start === end && start >= 2) {
-          let value = this.value;
-          if (value.substring(start - 2, start) === '  ') {
-            e.preventDefault();
-            this.value = value.substring(0, start - 2) + value.substring(end);
-            this.selectionStart = this.selectionEnd = start - 2;
-            renderMindMap();
-          }
+      function toggleTheme(){
+        const cur = document.documentElement.getAttribute("data-theme") || "auto";
+        const next = cur === "auto" ? "dark" : (cur === "dark" ? "light" : "auto");
+        setTheme(next);
+      }
+
+      function viewportRect(){ return viewport.getBoundingClientRect(); }
+
+      function screenToWorld(clientX, clientY, useTarget=false){
+        const r = viewportRect();
+        const vx = clientX - r.left;
+        const vy = clientY - r.top;
+        const zx = useTarget ? cam.tz : cam.z;
+        const px = useTarget ? cam.tx : cam.x;
+        const py = useTarget ? cam.ty : cam.y;
+        return { x: (vx - px) / zx, y: (vy - py) / zx };
+      }
+
+      function applyCamera(){
+        world.style.transform = `translate3d(${cam.x}px, ${cam.y}px, 0) scale(${cam.z})`;
+        zoomPill.textContent = `Zoom: ${Math.round(cam.z * 100)}%`;
+      }
+
+      function animateCamera(){
+        cam.x += (cam.tx - cam.x) * 0.16;
+        cam.y += (cam.ty - cam.y) * 0.16;
+        cam.z += (cam.tz - cam.z) * 0.16;
+
+        if (Math.abs(cam.tx - cam.x) < 0.01) cam.x = cam.tx;
+        if (Math.abs(cam.ty - cam.y) < 0.01) cam.y = cam.ty;
+        if (Math.abs(cam.tz - cam.z) < 0.0005) cam.z = cam.tz;
+
+        applyCamera();
+        requestAnimationFrame(animateCamera);
+      }
+
+      function setNodePos(node, x, y){
+        node.x = x; node.y = y;
+        const el = nodeElById.get(node.id);
+        if (!el) return;
+        el.style.setProperty("--x", `${Math.round(x)}px`);
+        el.style.setProperty("--y", `${Math.round(y)}px`);
+      }
+
+      function setSelected(id){
+        selectedId = id;
+        for (const [nid, el] of nodeElById.entries()){
+          el.classList.toggle("selected", nid === id);
         }
       }
-      // Utrzymywanie poziomu wcięcia po naciśnięciu Enter
-      else if (e.key === 'Enter') {
-        e.preventDefault();
-        let start = this.selectionStart;
-        let end = this.selectionEnd;
-        let value = this.value;
-        // Znajdź początek bieżącej linii
-        let lastLineBreak = value.lastIndexOf('\n', start - 1);
-        let lineStart = lastLineBreak + 1;
-        let currentLine = value.substring(lineStart, start);
-        // Pobierz wcięcie (wszystkie białe znaki na początku linii)
-        let indentMatch = currentLine.match(/^\s*/);
-        let indent = indentMatch ? indentMatch[0] : '';
-        let insertText = '\n' + indent;
-        this.value = value.substring(0, start) + insertText + value.substring(end);
-        // Ustaw kursor na końcu wstawionego tekstu
-        let cursorPos = start + insertText.length;
-        this.selectionStart = this.selectionEnd = cursorPos;
-        renderMindMap();
+
+      function focusLine(node){
+        if (!node) return;
+        editor.focus();
+        editor.setSelectionRange(node.lineStart, node.lineEnd);
       }
-    });
 
-    // Aktualizacja mapy przy każdej zmianie
-    inputText.addEventListener('input', renderMindMap);
+      /**********************
+       * Parsing
+       **********************/
+      function buildTree(text){
+        const lines = text.replace(/\r\n/g, "\n").split("\n");
+        const roots = [];
+        const stack = [];
+        let nodeId = 0;
+        let offset = 0;
 
-    /********************
-     * Parsowanie tekstu na strukturę drzewa
-     ********************/
-    function buildTree(text) {
-      const lines = text.split('\n');
-      const rootNodes = [];
-      const stack = [];
-      let nodeId = 0;
+        for (let i = 0; i < lines.length; i++){
+          const raw = lines[i];
+          const lineStart = offset;
+          const lineEnd = lineStart + raw.length;
+          offset += raw.length + 1;
 
-      lines.forEach(line => {
-        if (line.trim() === '') return; // pomijamy puste linie
-        // Oblicz liczbę początkowych spacji
-        const match = line.match(/^(\s*)/);
-        const spaces = match ? match[0].length : 0;
-        const level = Math.floor(spaces / 2); // każde 2 spacje = jeden poziom
-        const node = {
-          id: nodeId++,
-          text: line.trim(),
-          level: level,
-          parent: null,
-          children: []
-        };
-        if (stack.length === 0) {
-          rootNodes.push(node);
-          stack.push(node);
-        } else {
-          // Szukamy ostatniego węzła o niższym poziomie
-          while (stack.length && stack[stack.length - 1].level >= level) {
-            stack.pop();
-          }
-          if (stack.length) {
+          if (!raw.trim()) continue;
+
+          const lead = (raw.match(/^[\t ]*/) || [""])[0];
+          let spaces = 0;
+          for (const ch of lead) spaces += (ch === "\t") ? INDENT : 1;
+
+          const level = Math.floor(spaces / INDENT);
+          const label = raw.trim().replace(/^[-*•]\s+/, "");
+
+          const node = {
+            id: nodeId++,
+            text: label,
+            level,
+            parent: null,
+            children: [],
+            x:0, y:0, w:0, h:0, subtreeH:0,
+            lineStart, lineEnd
+          };
+
+          while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+          if (stack.length){
             node.parent = stack[stack.length - 1];
-            stack[stack.length - 1].children.push(node);
+            node.parent.children.push(node);
           } else {
-            rootNodes.push(node);
+            roots.push(node);
           }
           stack.push(node);
         }
-      });
-      return rootNodes;
-    }
-
-    /********************
-     * Obliczanie pozycji węzłów – prosty algorytm układu drzewa
-     ********************/
-    const horizontalSpacing = 200; // odstęp poziomy w zależności od poziomu
-    const verticalSpacing = 70;    // odstęp pionowy między węzłami
-
-    // Funkcja rekurencyjna – ustawia x oraz y dla każdego węzła
-    function layoutTree(nodes, currentY) {
-      nodes.forEach(node => {
-        // Ustawienie pozycji: zawsze pozostawiamy root na stałej pozycji X = 20
-        // Pozostałe węzły są przesunięte w prawo o poziom * horizontalSpacing
-        node.x = node.level === 0 ? 20 : node.level * horizontalSpacing + 20;
-        if (node.children.length > 0) {
-          const startY = currentY;
-          // Rekurencyjnie układamy dzieci
-          currentY = layoutTree(node.children, currentY);
-          // Ustawiamy pozycję rodzica na środku między pierwszym a ostatnim dzieckiem
-          const firstChildY = node.children[0].y;
-          const lastChildY = node.children[node.children.length - 1].y;
-          node.y = (firstChildY + lastChildY) / 2;
-        } else {
-          node.y = currentY;
-          currentY += verticalSpacing;
-        }
-      });
-      return currentY;
-    }
-
-    // Spłaszczenie drzewa do listy – ułatwia rysowanie węzłów i linii
-    function flattenTree(nodes) {
-      let arr = [];
-      nodes.forEach(node => {
-        arr.push(node);
-        if (node.children.length > 0) {
-          arr = arr.concat(flattenTree(node.children));
-        }
-      });
-      return arr;
-    }
-
-    /********************
-     * Funkcja rysująca linie między węzłami
-     ********************/
-    function drawLines(nodeElements, nodesFlat, svg) {
-      // Najpierw czyścimy zawartość SVG
-      while (svg.firstChild) {
-        svg.removeChild(svg.firstChild);
+        return roots;
       }
-      const gap = 10; // odstęp między węzłem a linią
-      nodesFlat.forEach(node => {
-        if (node.parent !== null) {
-          const parentElem = nodeElements[node.parent.id];
-          const childElem = nodeElements[node.id];
-          if (parentElem && childElem) {
-            const parentRightX = parentElem.offsetLeft + parentElem.offsetWidth;
-            const parentCenterY = parentElem.offsetTop + parentElem.offsetHeight / 2;
-            const childLeftX = childElem.offsetLeft;
-            const childCenterY = childElem.offsetTop + childElem.offsetHeight / 2;
 
-            const points = [
-              [parentRightX, parentCenterY],
-              [parentRightX + gap, parentCenterY],
-              [parentRightX + gap, childCenterY],
-              [childLeftX - gap, childCenterY]
-            ].map(pair => pair.join(',')).join(' ');
-
-            const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-            polyline.setAttribute("points", points);
-            polyline.setAttribute("stroke", "#333");
-            polyline.setAttribute("stroke-width", "2");
-            polyline.setAttribute("fill", "none");
-            svg.appendChild(polyline);
+      function flatten(nodes){
+        const out = [];
+        const walk = (arr) => {
+          for (const n of arr){
+            out.push(n);
+            if (n.children?.length) walk(n.children);
           }
-        }
-      });
-    }
+        };
+        walk(nodes);
+        return out;
+      }
 
-    /********************
-     * Funkcja rozwiązująca kolizje (nakładanie się) klocków
-     * Zapewnia, że żadne dwa elementy .node nie nachodzą na siebie,
-     * nawet gdy tekst powoduje zwiększenie wysokości klocka.
-     ********************/
-    function resolveCollisions() {
-      const nodes = Array.from(document.getElementsByClassName('node'));
-      const margin = 10; // dodatkowy odstęp między klockami
-      let changed;
-      do {
-        changed = false;
-        // Sortujemy elementy po ich pozycji pionowej
-        nodes.sort((a, b) => a.offsetTop - b.offsetTop);
-        for (let i = 0; i < nodes.length; i++) {
-          const rectA = nodes[i].getBoundingClientRect();
-          for (let j = i + 1; j < nodes.length; j++) {
-            const rectB = nodes[j].getBoundingClientRect();
-            // Sprawdzamy, czy elementy nachodzą na siebie w poziomie
-            if (rectA.right > rectB.left && rectA.left < rectB.right) {
-              // Jeśli nachodzą również pionowo, przesuwamy dolniejszy element
-              if (rectA.bottom > rectB.top) {
-                const overlap = rectA.bottom - rectB.top + margin;
-                const currentTop = parseFloat(nodes[j].style.top);
-                const newTop = currentTop + overlap;
-                nodes[j].style.top = newTop + 'px';
-                // Aktualizujemy pozycję w modelu węzła (jeśli dostępny)
-                if (nodes[j]._mindMapNode) {
-                  nodes[j]._mindMapNode.y = newTop;
-                }
-                changed = true;
+      /**********************
+       * Layout
+       **********************/
+      function computeSubtreeHeight(node){
+        if (!node.children.length){
+          node.subtreeH = node.h;
+          return node.subtreeH;
+        }
+        let sum = 0;
+        for (const ch of node.children) sum += computeSubtreeHeight(ch);
+        sum += GAP_Y * (node.children.length - 1);
+        node.subtreeH = Math.max(node.h, sum);
+        return node.subtreeH;
+      }
+
+      function setPositions(node, x, yTop){
+        node.x = x;
+        if (!node.children.length){
+          node.y = yTop;
+          return;
+        }
+
+        let childrenSpan = 0;
+        for (const ch of node.children) childrenSpan += ch.subtreeH;
+        childrenSpan += GAP_Y * (node.children.length - 1);
+
+        let curY = yTop + Math.max(0, (node.h - childrenSpan) / 2);
+
+        const childX = x + node.w + GAP_X;
+        for (const ch of node.children){
+          setPositions(ch, childX, curY);
+          curY += ch.subtreeH + GAP_Y;
+        }
+
+        const first = node.children[0];
+        const last = node.children[node.children.length - 1];
+        const targetCenter = (first.y + first.h/2 + last.y + last.h/2) / 2;
+        node.y = targetCenter - node.h/2;
+      }
+
+      function layoutAll(roots){
+        for (const r of roots) computeSubtreeHeight(r);
+        let y = ROOT_MARGIN;
+        for (const r of roots){
+          setPositions(r, ROOT_MARGIN, y);
+          y += r.subtreeH + (GAP_Y * 1.75);
+        }
+      }
+
+      function measureNodes(){
+        for (const node of flatNodes){
+          const el = nodeElById.get(node.id);
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          node.w = Math.ceil(rect.width);
+          node.h = Math.ceil(rect.height);
+        }
+      }
+
+      /**********************
+       * Rendering
+       **********************/
+      function clearMap(){
+        linksSvg.innerHTML = "";
+        nodesLayer.innerHTML = "";
+        nodeElById.clear();
+        pathElByKey.clear();
+      }
+
+      function renderNodes(){
+        const frag = document.createDocumentFragment();
+
+        for (const node of flatNodes){
+          const el = document.createElement("div");
+          el.className = `node lvl${Math.min(5, node.level)}`;
+          el.dataset.id = String(node.id);
+          el.style.visibility = "hidden";
+          el.style.setProperty("--x", "0px");
+          el.style.setProperty("--y", "0px");
+
+          const label = document.createElement("span");
+          label.className = "label";
+          label.textContent = node.text;
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.innerHTML = `<span class="dot" aria-hidden="true"></span><span>Poziom ${node.level}</span>`;
+
+          el.appendChild(label);
+          el.appendChild(meta);
+
+          el.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            el.setPointerCapture(e.pointerId);
+
+            const wp = screenToWorld(e.clientX, e.clientY);
+            interaction.mode = "node";
+            interaction.pointerId = e.pointerId;
+            interaction.startVx = e.clientX;
+            interaction.startVy = e.clientY;
+            interaction.moved = false;
+
+            interaction.nodeId = node.id;
+            interaction.nodeOffX = wp.x - node.x;
+            interaction.nodeOffY = wp.y - node.y;
+
+            el.classList.add("dragging");
+          });
+
+          el.addEventListener("pointerup", (e) => {
+            if (interaction.mode === "node" && interaction.pointerId === e.pointerId){
+              const wasMoved = interaction.moved;
+              interaction.mode = "none";
+              interaction.pointerId = null;
+              el.classList.remove("dragging");
+
+              if (!wasMoved){
+                setSelected(node.id);
+                focusLine(node);
               }
             }
+          });
+
+          nodeElById.set(node.id, el);
+          frag.appendChild(el);
+        }
+
+        nodesLayer.appendChild(frag);
+      }
+
+      function computeWorldBounds(){
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const n of flatNodes){
+          minX = Math.min(minX, n.x);
+          minY = Math.min(minY, n.y);
+          maxX = Math.max(maxX, n.x + n.w);
+          maxY = Math.max(maxY, n.y + n.h);
+        }
+        if (!isFinite(minX)) return { minX:0, minY:0, maxX:0, maxY:0, w:0, h:0 };
+        return { minX, minY, maxX, maxY, w:(maxX-minX), h:(maxY-minY) };
+      }
+
+      function ensureWorldSize(){
+        const b = computeWorldBounds();
+        const margin = 220;
+        const w = Math.max(800, Math.ceil(b.maxX + margin));
+        const h = Math.max(600, Math.ceil(b.maxY + margin));
+        world.style.width = w + "px";
+        world.style.height = h + "px";
+        linksSvg.setAttribute("width", String(w));
+        linksSvg.setAttribute("height", String(h));
+        linksSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      }
+
+      function drawLinks(animated=true){
+        linksSvg.innerHTML = "";
+        pathElByKey.clear();
+
+        const frag = document.createDocumentFragment();
+
+        for (const node of flatNodes){
+          if (!node.parent) continue;
+
+          const p = node.parent;
+          const x1 = p.x + p.w;
+          const y1 = p.y + p.h / 2;
+          const x2 = node.x;
+          const y2 = node.y + node.h / 2;
+
+          const dx = Math.max(60, (x2 - x1) * 0.55);
+          const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+
+          const glow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          glow.setAttribute("d", d);
+          glow.setAttribute("class", "linkPath glow");
+          frag.appendChild(glow);
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", d);
+          path.setAttribute("class", "linkPath");
+
+          if (animated){
+            const length = 600;
+            path.style.strokeDasharray = String(length);
+            path.style.strokeDashoffset = String(length);
+            path.style.transition = "stroke-dashoffset 650ms cubic-bezier(.2,.8,.2,1), opacity 350ms ease";
+            path.style.opacity = "0.9";
+
+            raf(() => {
+              try{
+                const realLen = path.getTotalLength();
+                path.style.strokeDasharray = String(realLen);
+                path.style.strokeDashoffset = String(realLen);
+                raf(() => { path.style.strokeDashoffset = "0"; path.style.opacity = "1"; });
+              } catch {}
+            });
+          }
+
+          frag.appendChild(path);
+
+          const key = `${p.id}->${node.id}`;
+          pathElByKey.set(key, { path, glow });
+        }
+
+        linksSvg.appendChild(frag);
+      }
+
+      function updateLinksLive(){
+        for (const node of flatNodes){
+          if (!node.parent) continue;
+          const p = node.parent;
+
+          const x1 = p.x + p.w;
+          const y1 = p.y + p.h / 2;
+          const x2 = node.x;
+          const y2 = node.y + node.h / 2;
+          const dx = Math.max(60, (x2 - x1) * 0.55);
+
+          const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+          const key = `${p.id}->${node.id}`;
+          const pair = pathElByKey.get(key);
+          if (pair){
+            pair.path.setAttribute("d", d);
+            pair.glow.setAttribute("d", d);
           }
         }
-      } while (changed);
-    }
+      }
 
-    /********************
-     * Renderowanie mapy myśli
-     ********************/
-    function renderMindMap() {
-      const text = inputText.value;
-      const rootNodes = buildTree(text);
-      // Początkowa pozycja Y – margines górny
-      const startY = 20;
-      layoutTree(rootNodes, startY);
-      const nodesFlat = flattenTree(rootNodes);
+      function showNodes(){
+        raf(() => {
+          for (const node of flatNodes){
+            const el = nodeElById.get(node.id);
+            if (!el) continue;
+            el.style.visibility = "visible";
+            el.style.setProperty("--x", `${Math.round(node.x)}px`);
+            el.style.setProperty("--y", `${Math.round(node.y)}px`);
+          }
+          raf(() => {
+            for (const el of nodeElById.values()) el.classList.add("show");
+          });
+        });
+      }
 
-      const mapContainer = document.getElementById('map-container');
-      mapContainer.innerHTML = ''; // czyścimy poprzednią zawartość
+      function renderMindMap(){
+        renderQueued = false;
 
-      // Dodajemy SVG do rysowania linii – początkowo ustawiamy rozmiary na minimalne, później przeliczamy
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.style.position = "absolute";
-      svg.style.top = "0";
-      svg.style.left = "0";
-      mapContainer.appendChild(svg);
+        const text = editor.value || "";
+        const roots = buildTree(text);
+        lastTree = roots;
 
-      // Utwórz węzły i zachowaj referencje (po id) dla obliczania pozycji przy rysowaniu linii
-      const nodeElements = {};
-      nodesFlat.forEach(node => {
-        const div = document.createElement('div');
-        div.className = 'node';
-        // Ustaw rozmiar czcionki w zależności od poziomu:
-        // Poziom 0: 36px, poziom 1: 24px, poziom >=2: 16px
-        if (node.level === 0) {
-          div.style.fontSize = '36px';
-        } else if (node.level === 1) {
-          div.style.fontSize = '24px';
+        flatNodes = flatten(roots);
+        statsText.textContent = flatNodes.length ? `Węzły: ${flatNodes.length}` : "Wpisz strukturę, aby zobaczyć mapę";
+
+        clearMap();
+
+        if (!flatNodes.length){
+          world.style.width = "800px";
+          world.style.height = "600px";
+          linksSvg.setAttribute("width", "800");
+          linksSvg.setAttribute("height", "600");
+          linksSvg.setAttribute("viewBox", "0 0 800 600");
+          return;
+        }
+
+        renderNodes();
+        measureNodes();
+        layoutAll(roots);
+        ensureWorldSize();
+        drawLinks(true);
+        showNodes();
+
+        if (selectedId !== null && nodeElById.has(selectedId)) setSelected(selectedId);
+        else selectedId = null;
+      }
+
+      function scheduleRender(){
+        if (renderQueued) return;
+        renderQueued = true;
+        requestAnimationFrame(renderMindMap);
+      }
+
+      /**********************
+       * Fit / Center
+       **********************/
+      function fitToView(){
+        if (!flatNodes.length) return;
+
+        const b = computeWorldBounds();
+        const r = viewportRect();
+        const pad = 90;
+
+        const w = Math.max(1, b.w + pad * 2);
+        const h = Math.max(1, b.h + pad * 2);
+
+        const z = clamp(Math.min(r.width / w, r.height / h), 0.15, 2.2);
+
+        const targetX = (r.width / 2) - (b.minX + b.w / 2) * z;
+        const targetY = (r.height / 2) - (b.minY + b.h / 2) * z;
+
+        cam.tz = z; cam.tx = targetX; cam.ty = targetY;
+      }
+
+      function centerRoot(){
+        if (!lastTree || !lastTree.length) return;
+        const root = lastTree[0];
+        const r = viewportRect();
+        const z = cam.tz;
+
+        const cx = root.x + root.w / 2;
+        const cy = root.y + root.h / 2;
+
+        cam.tx = (r.width / 2) - cx * z;
+        cam.ty = (r.height / 2) - cy * z;
+      }
+
+      /**********************
+       * Editor keys (Tab/Shift+Tab/Enter)
+       **********************/
+      function indentSelection(add=true){
+        const value = editor.value;
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+
+        const before = value.slice(0, start);
+        const sel = value.slice(start, end);
+
+        const lineStart = before.lastIndexOf("\n") + 1;
+        const isMulti = sel.includes("\n") || start !== end;
+
+        if (!isMulti){
+          if (add){
+            editor.value = value.slice(0, start) + "  " + value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + 2;
+          } else {
+            const ls = lineStart;
+            const prefix = value.slice(ls, Math.min(ls + 2, value.length));
+            if (prefix === "  "){
+              editor.value = value.slice(0, ls) + value.slice(ls + 2);
+              const shift = (start >= ls + 2) ? 2 : 0;
+              editor.selectionStart = editor.selectionEnd = Math.max(ls, start - shift);
+            }
+          }
+          return;
+        }
+
+        const selStart = lineStart;
+        const selEnd = (() => {
+          const endLineBreak = value.indexOf("\n", end);
+          return endLineBreak === -1 ? value.length : endLineBreak;
+        })();
+
+        const block = value.slice(selStart, selEnd);
+        const lines = block.split("\n");
+
+        let removed = 0;
+        const out = lines.map((ln) => {
+          if (!ln.trim()) return ln;
+          if (add) return "  " + ln;
+          if (ln.startsWith("  ")){ removed += 2; return ln.slice(2); }
+          if (ln.startsWith(" ")){ removed += 1; return ln.slice(1); }
+          return ln;
+        }).join("\n");
+
+        editor.value = value.slice(0, selStart) + out + value.slice(selEnd);
+
+        if (add){
+          editor.selectionStart = start + 2;
+          editor.selectionEnd = end + (2 * lines.filter(l=>l.trim()).length);
         } else {
-          div.style.fontSize = '16px';
-        }
-        div.textContent = node.text;
-        div.style.left = node.x + 'px';
-        div.style.top = node.y + 'px';
-        mapContainer.appendChild(div);
-        nodeElements[node.id] = div;
-
-        // Przechowujemy referencję do modelu węzła w elemencie, aby mieć do niego dostęp przy przeciąganiu
-        div._mindMapNode = node;
-
-        // Dodajemy obsługę przeciągania klocka
-        div.addEventListener('mousedown', function(e) {
-          // Zapobiegamy wywołaniu panningu mapy
-          e.stopPropagation();
-          draggedNode = {
-            element: div,
-            node: node,
-            offsetX: e.offsetX,
-            offsetY: e.offsetY
-          };
-        });
-      });
-
-      // Wywołujemy funkcję rozwiązywania kolizji, aby upewnić się, że klocki się nie nachodzą,
-      // szczególnie gdy tekst powoduje zwiększenie wysokości elementu.
-      resolveCollisions();
-
-      // Dodatkowa funkcjonalność:
-      // Przesuń pierwszy (root) klocek mapy, aby był wyśrodkowany pionowo w panelu mapy po prawej stronie.
-      // Obliczamy offset na podstawie wysokości widocznego obszaru (uwzględniając zoom)
-      const mapArea = document.getElementById('map-area');
-      if (rootNodes.length > 0) {
-        const rootElem = nodeElements[rootNodes[0].id];
-        // Obliczamy środek root elementu
-        const rootCenter = rootElem.offsetTop + rootElem.offsetHeight / 2;
-        // Ustal widoczną wysokość kontenera w układzie nieskalowanym
-        const containerHeight = mapArea.clientHeight / zoomLevel;
-        const offset = (containerHeight / 2) - rootCenter;
-        // Przesuwamy wszystkie węzły o obliczony offset
-        nodesFlat.forEach(node => {
-          node.y += offset;
-          nodeElements[node.id].style.top = node.y + 'px';
-        });
-      }
-
-      // Po narysowaniu węzłów przeliczamy maksymalne rozmiary – aby SVG objęło całą mapę
-      let maxX = 0, maxY = 0;
-      Object.values(nodeElements).forEach(elem => {
-        const right = elem.offsetLeft + elem.offsetWidth;
-        const bottom = elem.offsetTop + elem.offsetHeight;
-        if (right > maxX) maxX = right;
-        if (bottom > maxY) maxY = bottom;
-      });
-      svg.setAttribute("width", maxX + 50);
-      svg.setAttribute("height", maxY + 50);
-
-      // Rysujemy linie łączące każdy węzeł z jego rodzicem z dodanymi przerwami dla lepszej czytelności
-      drawLines(nodeElements, nodesFlat, svg);
-
-      // Aktualizujemy globalne referencje, by przeciąganie mogło dynamicznie aktualizować linie
-      globalNodeElements = nodeElements;
-      globalNodesFlat = nodesFlat;
-      globalSVG = svg;
-    }
-
-    // Renderuj mapę przy ładowaniu strony
-    window.addEventListener('load', renderMindMap);
-
-    /********************
-     * Zoom – przybliżanie i oddalanie mapy
-     ********************/
-    let zoomLevel = 1;
-    function updateZoom() {
-      document.getElementById('map-container').style.transform = 'scale(' + zoomLevel + ')';
-    }
-
-    // Dodanie zoomu za pomocą scrolla myszki na panelu mapy
-    const mapArea = document.getElementById('map-area');
-    mapArea.addEventListener('wheel', function(e) {
-      e.preventDefault();
-      if (e.deltaY < 0) {
-        zoomLevel += 0.1;
-      } else {
-        zoomLevel = Math.max(0.1, zoomLevel - 0.1);
-      }
-      updateZoom();
-    });
-
-    /********************
-     * Dodanie funkcji przeciągania (panning) mapy myśli przy użyciu myszy
-     ********************/
-    let isDragging = false;
-    let startX, startY, scrollLeft, scrollTop;
-    mapArea.addEventListener('mousedown', function(e) {
-      // Jeśli kliknięto na węzeł, nie rozpoczynamy panningu
-      if (e.target.classList.contains('node')) return;
-      isDragging = true;
-      startX = e.pageX - mapArea.offsetLeft;
-      startY = e.pageY - mapArea.offsetTop;
-      scrollLeft = mapArea.scrollLeft;
-      scrollTop = mapArea.scrollTop;
-      mapArea.style.cursor = 'grabbing';
-    });
-    mapArea.addEventListener('mouseleave', function() {
-      isDragging = false;
-      mapArea.style.cursor = 'grab';
-    });
-    mapArea.addEventListener('mouseup', function() {
-      isDragging = false;
-      mapArea.style.cursor = 'grab';
-    });
-    mapArea.addEventListener('mousemove', function(e) {
-      if (!isDragging) return;
-      e.preventDefault();
-      const x = e.pageX - mapArea.offsetLeft;
-      const y = e.pageY - mapArea.offsetTop;
-      const walkX = x - startX;
-      const walkY = y - startY;
-      mapArea.scrollLeft = scrollLeft - walkX;
-      mapArea.scrollTop = scrollTop - walkY;
-    });
-
-    /********************
-     * Obsługa przeciągania klocków oraz dynamiczna aktualizacja linii
-     ********************/
-    document.addEventListener('mousemove', function(e) {
-      if (draggedNode) {
-        const mapContainer = document.getElementById('map-container');
-        const containerRect = mapContainer.getBoundingClientRect();
-        // Obliczamy nową pozycję klocka, uwzględniając offset kliknięcia
-        const newLeft = e.clientX - containerRect.left - draggedNode.offsetX;
-        const newTop = e.clientY - containerRect.top - draggedNode.offsetY;
-        draggedNode.element.style.left = newLeft + 'px';
-        draggedNode.element.style.top = newTop + 'px';
-        // Aktualizujemy pozycję w modelu węzła
-        draggedNode.node.x = newLeft;
-        draggedNode.node.y = newTop;
-        // Dynamicznie aktualizujemy linie łączące węzły
-        if (globalSVG && globalNodeElements && globalNodesFlat.length > 0) {
-          drawLines(globalNodeElements, globalNodesFlat, globalSVG);
+          editor.selectionStart = Math.max(selStart, start - 2);
+          editor.selectionEnd = Math.max(editor.selectionStart, end - removed);
         }
       }
-    });
-    document.addEventListener('mouseup', function() {
-      if (draggedNode) {
-        draggedNode = null;
+
+      editor.addEventListener("keydown", (e) => {
+        if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey){
+          e.preventDefault();
+          openHelp();
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === "0" || e.code === "Digit0")){
+          e.preventDefault();
+          fitToView();
+          return;
+        }
+
+        if (e.key === "Tab"){
+          e.preventDefault();
+          indentSelection(!e.shiftKey);
+          scheduleRender();
+          debounceSave();
+          return;
+        }
+
+        if (e.key === "Enter"){
+          e.preventDefault();
+          const value = editor.value;
+          const start = editor.selectionStart;
+          const end = editor.selectionEnd;
+
+          const lineBreak = value.lastIndexOf("\n", start - 1);
+          const ls = lineBreak + 1;
+          const currentLine = value.slice(ls, start);
+          const indent = (currentLine.match(/^[\t ]*/) || [""])[0];
+
+          const insert = "\n" + indent;
+          editor.value = value.slice(0, start) + insert + value.slice(end);
+          const cursor = start + insert.length;
+          editor.selectionStart = editor.selectionEnd = cursor;
+
+          scheduleRender();
+          debounceSave();
+        }
+      });
+
+      editor.addEventListener("input", () => {
+        scheduleRender();
+        debounceSave();
+      });
+
+      /**********************
+       * Autosave
+       **********************/
+      let saveT = null;
+      function debounceSave(){
+        if (saveT) clearTimeout(saveT);
+        saveT = setTimeout(() => localStorage.setItem(LS_TEXT, editor.value), 260);
       }
-    });
+
+      /**********************
+       * Pointer interactions
+       **********************/
+      viewport.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest(".node")) return;
+
+        viewport.setPointerCapture(e.pointerId);
+        interaction.mode = "pan";
+        interaction.pointerId = e.pointerId;
+        interaction.startVx = e.clientX;
+        interaction.startVy = e.clientY;
+        interaction.startTx = cam.tx;
+        interaction.startTy = cam.ty;
+        interaction.moved = false;
+      });
+
+      viewport.addEventListener("pointermove", (e) => {
+        if (interaction.pointerId !== e.pointerId) return;
+
+        const dx = e.clientX - interaction.startVx;
+        const dy = e.clientY - interaction.startVy;
+        if (Math.abs(dx) + Math.abs(dy) > 3) interaction.moved = true;
+
+        if (interaction.mode === "pan"){
+          cam.tx = interaction.startTx + dx;
+          cam.ty = interaction.startTy + dy;
+          return;
+        }
+
+        if (interaction.mode === "node"){
+          const node = flatNodes.find(n => n.id === interaction.nodeId);
+          if (!node) return;
+
+          const wp = screenToWorld(e.clientX, e.clientY);
+          const nx = wp.x - interaction.nodeOffX;
+          const ny = wp.y - interaction.nodeOffY;
+
+          if (Math.abs(e.clientX - interaction.startVx) + Math.abs(e.clientY - interaction.startVy) > 3){
+            interaction.moved = true;
+          }
+
+          setNodePos(node, nx, ny);
+          updateLinksLive();
+        }
+      });
+
+      viewport.addEventListener("pointerup", (e) => {
+        if (interaction.pointerId !== e.pointerId) return;
+
+        if (interaction.mode === "pan" && !interaction.moved){
+          setSelected(null);
+        }
+
+        interaction.mode = "none";
+        interaction.pointerId = null;
+        interaction.nodeId = null;
+      });
+
+      viewport.addEventListener("pointercancel", () => {
+        interaction.mode = "none";
+        interaction.pointerId = null;
+        interaction.nodeId = null;
+      });
+
+      viewport.addEventListener("wheel", (e) => {
+        e.preventDefault();
+
+        const r = viewportRect();
+        const vx = e.clientX - r.left;
+        const vy = e.clientY - r.top;
+
+        const direction = e.deltaY > 0 ? -1 : 1;
+        const factor = Math.exp(direction * 0.12);
+
+        const newZ = clamp(cam.tz * factor, 0.12, 2.8);
+
+        const wp = screenToWorld(e.clientX, e.clientY, true);
+        cam.tz = newZ;
+        cam.tx = vx - wp.x * newZ;
+        cam.ty = vy - wp.y * newZ;
+      }, { passive:false });
+
+      /**********************
+       * UI Buttons
+       **********************/
+      function setExample(){
+        editor.value =
+`Temat główny
+  Kierunek A
+    Pomysł 1
+    Pomysł 2
+      Szczegół
+  Kierunek B
+    Zadanie 1
+    Zadanie 2
+  Notatki
+    Ryzyka
+    Założenia
+    Kolejne kroki`;
+        scheduleRender();
+        debounceSave();
+        raf(() => fitToView());
+      }
+
+      function openHelp(){ modalBackdrop.classList.add("show"); }
+      function closeHelp(){ modalBackdrop.classList.remove("show"); }
+
+      btnExample.addEventListener("click", setExample);
+      btnInsertExample2.addEventListener("click", () => { setExample(); closeHelp(); });
+      btnHelp.addEventListener("click", openHelp);
+      btnCloseHelp.addEventListener("click", closeHelp);
+      btnCloseHelp2.addEventListener("click", closeHelp);
+      modalBackdrop.addEventListener("click", (e) => { if (e.target === modalBackdrop) closeHelp(); });
+
+      btnFit.addEventListener("click", fitToView);
+      btnCenter.addEventListener("click", centerRoot);
+      btnTheme.addEventListener("click", toggleTheme);
+
+      btnZoomIn.addEventListener("click", () => {
+        const r = viewportRect();
+        const vx = r.width / 2, vy = r.height / 2;
+        const wp = screenToWorld(r.left + vx, r.top + vy, true);
+        const newZ = clamp(cam.tz * 1.12, 0.12, 2.8);
+        cam.tz = newZ;
+        cam.tx = vx - wp.x * newZ;
+        cam.ty = vy - wp.y * newZ;
+      });
+
+      btnZoomOut.addEventListener("click", () => {
+        const r = viewportRect();
+        const vx = r.width / 2, vy = r.height / 2;
+        const wp = screenToWorld(r.left + vx, r.top + vy, true);
+        const newZ = clamp(cam.tz / 1.12, 0.12, 2.8);
+        cam.tz = newZ;
+        cam.tx = vx - wp.x * newZ;
+        cam.ty = vy - wp.y * newZ;
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeHelp();
+      });
+
+      /**********************
+       * Sidebar resizer
+       **********************/
+      function isMobileLayout(){
+        return window.matchMedia("(max-width: 980px)").matches;
+      }
+
+      resizer.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        resizer.setPointerCapture(e.pointerId);
+
+        const start = isMobileLayout() ? e.clientY : e.clientX;
+        const rect = sidebar.getBoundingClientRect();
+        const startSize = isMobileLayout() ? rect.height : rect.width;
+
+        const onMove = (ev) => {
+          if (ev.pointerId !== e.pointerId) return;
+          const cur = isMobileLayout() ? ev.clientY : ev.clientX;
+          const delta = cur - start;
+          let newSize = startSize + delta;
+
+          if (isMobileLayout()){
+            newSize = clamp(newSize, 180, window.innerHeight - 220);
+            sidebar.style.height = newSize + "px";
+          } else {
+            // ✅ allow wider expansion
+            newSize = clamp(newSize, 280, 920);
+            sidebar.style.width = newSize + "px";
+          }
+        };
+
+        const onUp = (ev) => {
+          if (ev.pointerId !== e.pointerId) return;
+          resizer.removeEventListener("pointermove", onMove);
+          resizer.removeEventListener("pointerup", onUp);
+          resizer.removeEventListener("pointercancel", onUp);
+
+          if (!isMobileLayout()){
+            const w = sidebar.getBoundingClientRect().width;
+            localStorage.setItem(LS_SIDEBAR, String(Math.round(w)));
+          }
+        };
+
+        resizer.addEventListener("pointermove", onMove);
+        resizer.addEventListener("pointerup", onUp);
+        resizer.addEventListener("pointercancel", onUp);
+      });
+
+      /**********************
+       * Init
+       **********************/
+      function loadPersisted(){
+        const theme = localStorage.getItem(LS_THEME) || "auto";
+        setTheme(theme);
+
+        const sw = parseInt(localStorage.getItem(LS_SIDEBAR) || "", 10);
+        if (Number.isFinite(sw) && sw >= 280 && sw <= 920){
+          sidebar.style.width = sw + "px";
+        }
+
+        const saved = localStorage.getItem(LS_TEXT);
+        if (saved && saved.trim()){
+          editor.value = saved;
+        } else {
+          editor.value =
+`Temat główny
+  Podtemat 1
+  Podtemat 2
+    Szczegół`;
+        }
+      }
+
+      loadPersisted();
+      scheduleRender();
+      requestAnimationFrame(() => fitToView());
+      requestAnimationFrame(animateCamera);
+    })();
   </script>
 </body>
 </html>
+
