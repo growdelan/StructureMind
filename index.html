@@ -1372,14 +1372,71 @@ Temat główny
         return metrics;
       }
 
+      function prepareExportLayout(metrics){
+        const roots = lastTree || flatNodes.filter((node) => !node.parent);
+
+        const computeExportSubtreeHeight = (node) => {
+          const nodeMetrics = metrics.get(node.id);
+          if (!nodeMetrics) return node.h;
+
+          if (!node.children.length){
+            nodeMetrics.subtreeH = nodeMetrics.h;
+            return nodeMetrics.subtreeH;
+          }
+
+          let childrenSpan = 0;
+          for (const child of node.children) childrenSpan += computeExportSubtreeHeight(child);
+          childrenSpan += GAP_Y * (node.children.length - 1);
+          nodeMetrics.subtreeH = Math.max(nodeMetrics.h, childrenSpan);
+          return nodeMetrics.subtreeH;
+        };
+
+        const setExportPosition = (node, yTop) => {
+          const nodeMetrics = metrics.get(node.id);
+          if (!nodeMetrics) return;
+
+          if (!node.children.length){
+            nodeMetrics.y = yTop;
+            return;
+          }
+
+          let childrenSpan = 0;
+          for (const child of node.children) childrenSpan += metrics.get(child.id)?.subtreeH || child.h;
+          childrenSpan += GAP_Y * (node.children.length - 1);
+
+          let curY = yTop + Math.max(0, (nodeMetrics.h - childrenSpan) / 2);
+          for (const child of node.children){
+            setExportPosition(child, curY);
+            curY += (metrics.get(child.id)?.subtreeH || child.h) + GAP_Y;
+          }
+
+          const first = node.children[0];
+          const last = node.children[node.children.length - 1];
+          const firstMetrics = metrics.get(first.id);
+          const lastMetrics = metrics.get(last.id);
+          const firstCenter = (firstMetrics?.y ?? first.y) + (firstMetrics?.h || first.h) / 2;
+          const lastCenter = (lastMetrics?.y ?? last.y) + (lastMetrics?.h || last.h) / 2;
+          const targetCenter = (firstCenter + lastCenter) / 2;
+          nodeMetrics.y = targetCenter - nodeMetrics.h / 2;
+        };
+
+        for (const root of roots) computeExportSubtreeHeight(root);
+
+        let y = ROOT_MARGIN;
+        for (const root of roots){
+          setExportPosition(root, y);
+          y += (metrics.get(root.id)?.subtreeH || root.h) + (GAP_Y * 1.75);
+        }
+      }
+
       function computeExportWorldBounds(metrics){
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const node of flatNodes){
           const nodeMetrics = metrics.get(node.id);
           minX = Math.min(minX, node.x);
-          minY = Math.min(minY, node.y);
+          minY = Math.min(minY, nodeMetrics?.y ?? node.y);
           maxX = Math.max(maxX, node.x + node.w);
-          maxY = Math.max(maxY, node.y + (nodeMetrics?.h || node.h));
+          maxY = Math.max(maxY, (nodeMetrics?.y ?? node.y) + (nodeMetrics?.h || node.h));
         }
         if (!isFinite(minX)) return { minX:0, minY:0, maxX:0, maxY:0, w:0, h:0 };
         return { minX, minY, maxX, maxY, w:(maxX-minX), h:(maxY-minY) };
@@ -1393,9 +1450,9 @@ Temat główny
           const parentMetrics = metrics.get(p.id);
           const nodeMetrics = metrics.get(node.id);
           const x1 = offsetX + p.x + p.w;
-          const y1 = offsetY + p.y + (parentMetrics?.h || p.h) / 2;
+          const y1 = offsetY + (parentMetrics?.y ?? p.y) + (parentMetrics?.h || p.h) / 2;
           const x2 = offsetX + node.x;
-          const y2 = offsetY + node.y + (nodeMetrics?.h || node.h) / 2;
+          const y2 = offsetY + (nodeMetrics?.y ?? node.y) + (nodeMetrics?.h || node.h) / 2;
           const dx = Math.max(60, (x2 - x1) * 0.55);
           const levelColor = getLevelColor(node.level);
 
@@ -1429,9 +1486,9 @@ Temat główny
 
         for (const node of flatNodes){
           const x = Math.round(offsetX + node.x);
-          const y = Math.round(offsetY + node.y);
-          const w = Math.round(node.w);
           const nodeMetrics = metrics.get(node.id);
+          const y = Math.round(offsetY + (nodeMetrics?.y ?? node.y));
+          const w = Math.round(node.w);
           const h = Math.round(nodeMetrics?.h || node.h);
           const r = node.level === 0 ? 20 : 16;
 
@@ -1491,6 +1548,7 @@ Temat główny
         const measureCanvas = document.createElement("canvas");
         const measureCtx = measureCanvas.getContext("2d");
         const exportMetrics = getExportMetrics(measureCtx, fontFamily);
+        prepareExportLayout(exportMetrics);
         const bounds = computeExportWorldBounds(exportMetrics);
         const width = Math.ceil(bounds.w + margin * 2);
         const height = Math.ceil(bounds.h + margin * 2);

@@ -19,6 +19,7 @@
 - Ostatnia walidacja przed usunięciem testu: headless Chromium/Playwright, `5/5 testów zakończonych powodzeniem`.
 - Ostatnia walidacja Milestone 2: składnia skryptu, smoke test przeglądarkowy poziomów 0-9, przełączanie motywów, eksport PNG i brak błędów konsoli.
 - Ostatnia poprawka eksportu PNG: osobne metryki Canvas dla węzłów zapobiegają nakładaniu etykiet i metadanych `Poziom X`.
+- Ostatnia poprawka układu PNG: eksport przelicza pionowe pozycje węzłów na podstawie metryk Canvas, żeby większe węzły nie kolidowały przy rozbudowanych mapach.
 - Self-review batcha Milestone 2: brak problemów krytycznych.
 
 ## Co jest w trakcie
@@ -34,6 +35,7 @@
 - Publikacja GitHub Pages działa z brancha `main`, zgodnie z regułami środowiska `github-pages`.
 
 ## Ostatnie aktualizacje
+- 2026-05-10: doprecyzowano układ eksportu PNG, aby rozbudowane mapy nie rozsypywały się po zwiększeniu wysokości węzłów.
 - 2026-05-10: naprawiono regresję eksportu PNG, w której etykieta węzła i metadane poziomu mogły nachodzić na siebie.
 - 2026-05-10: zakończono Milestone 2, dodano kolorowanie kropek i połączeń poziomów oraz zgodność kolorów w eksporcie PNG.
 - 2026-05-10: dodano publikację GitHub Pages przez GitHub Actions i zaktualizowano screenshot w README.
