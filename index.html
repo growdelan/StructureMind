@@ -1339,15 +1339,63 @@ Temat główny
         return lines.length ? lines : [text];
       }
 
-      function drawExportLinks(ctx, offsetX, offsetY){
+      function getExportNodeMetrics(ctx, node, fontFamily){
+        const padX = node.level === 0 ? 14 : 12;
+        const padY = node.level === 0 ? 12 : 10;
+        const labelSize = node.level === 0 ? 22 : (node.level === 1 ? 16 : 13);
+        const labelWeight = node.level <= 1 ? 760 : 700;
+        const labelLineHeight = Math.round(labelSize * 1.25);
+        const metaGap = 6;
+        const metaHeight = 16;
+
+        ctx.font = `${labelWeight} ${labelSize}px ${fontFamily}`;
+        const lines = wrapCanvasText(ctx, node.text, node.w - padX * 2);
+        const labelHeight = lines.length * labelLineHeight;
+        const metaY = padY + labelHeight + metaGap;
+        const requiredHeight = padY + labelHeight + metaGap + metaHeight + padY;
+
+        return {
+          h: Math.max(node.h, requiredHeight),
+          labelLineHeight,
+          labelSize,
+          labelWeight,
+          lines,
+          metaY,
+          padX,
+          padY
+        };
+      }
+
+      function getExportMetrics(ctx, fontFamily){
+        const metrics = new Map();
+        for (const node of flatNodes) metrics.set(node.id, getExportNodeMetrics(ctx, node, fontFamily));
+        return metrics;
+      }
+
+      function computeExportWorldBounds(metrics){
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const node of flatNodes){
+          const nodeMetrics = metrics.get(node.id);
+          minX = Math.min(minX, node.x);
+          minY = Math.min(minY, node.y);
+          maxX = Math.max(maxX, node.x + node.w);
+          maxY = Math.max(maxY, node.y + (nodeMetrics?.h || node.h));
+        }
+        if (!isFinite(minX)) return { minX:0, minY:0, maxX:0, maxY:0, w:0, h:0 };
+        return { minX, minY, maxX, maxY, w:(maxX-minX), h:(maxY-minY) };
+      }
+
+      function drawExportLinks(ctx, offsetX, offsetY, metrics){
         for (const node of flatNodes){
           if (!node.parent) continue;
 
           const p = node.parent;
+          const parentMetrics = metrics.get(p.id);
+          const nodeMetrics = metrics.get(node.id);
           const x1 = offsetX + p.x + p.w;
-          const y1 = offsetY + p.y + p.h / 2;
+          const y1 = offsetY + p.y + (parentMetrics?.h || p.h) / 2;
           const x2 = offsetX + node.x;
-          const y2 = offsetY + node.y + node.h / 2;
+          const y2 = offsetY + node.y + (nodeMetrics?.h || node.h) / 2;
           const dx = Math.max(60, (x2 - x1) * 0.55);
           const levelColor = getLevelColor(node.level);
 
@@ -1371,7 +1419,7 @@ Temat główny
         }
       }
 
-      function drawExportNodes(ctx, offsetX, offsetY){
+      function drawExportNodes(ctx, offsetX, offsetY, metrics){
         const textColor = cssVar("--text") || "#e8eefc";
         const mutedColor = cssVar("--muted") || "#9aa6c3";
         const borderColor = cssVar("--node-border") || "rgba(255,255,255,.14)";
@@ -1383,7 +1431,8 @@ Temat główny
           const x = Math.round(offsetX + node.x);
           const y = Math.round(offsetY + node.y);
           const w = Math.round(node.w);
-          const h = Math.round(node.h);
+          const nodeMetrics = metrics.get(node.id);
+          const h = Math.round(nodeMetrics?.h || node.h);
           const r = node.level === 0 ? 20 : 16;
 
           ctx.save();
@@ -1403,23 +1452,21 @@ Temat główny
           ctx.lineWidth = 1;
           ctx.stroke();
 
-          const padX = node.level === 0 ? 14 : 12;
-          const padY = node.level === 0 ? 12 : 10;
-          const labelSize = node.level === 0 ? 22 : (node.level === 1 ? 16 : 13);
-          const labelWeight = node.level <= 1 ? 760 : 700;
-          const labelLineHeight = Math.round(labelSize * 1.25);
+          const padX = nodeMetrics.padX;
+          const labelSize = nodeMetrics.labelSize;
+          const labelWeight = nodeMetrics.labelWeight;
+          const labelLineHeight = nodeMetrics.labelLineHeight;
 
           ctx.fillStyle = textColor;
           ctx.font = `${labelWeight} ${labelSize}px ${fontFamily}`;
           ctx.textBaseline = "top";
-          const lines = wrapCanvasText(ctx, node.text, w - padX * 2);
-          let textY = y + padY;
-          for (const line of lines){
+          let textY = y + nodeMetrics.padY;
+          for (const line of nodeMetrics.lines){
             ctx.fillText(line, x + padX, textY);
             textY += labelLineHeight;
           }
 
-          const metaY = Math.min(y + h - 21, textY + 6);
+          const metaY = y + nodeMetrics.metaY;
           ctx.fillStyle = getLevelColor(node.level);
           ctx.beginPath();
           ctx.arc(x + padX + 3.5, metaY + 8, 3.5, 0, Math.PI * 2);
@@ -1440,7 +1487,11 @@ Temat główny
         }
 
         const margin = 64;
-        const bounds = computeWorldBounds();
+        const fontFamily = cssVar("--font") || "system-ui, sans-serif";
+        const measureCanvas = document.createElement("canvas");
+        const measureCtx = measureCanvas.getContext("2d");
+        const exportMetrics = getExportMetrics(measureCtx, fontFamily);
+        const bounds = computeExportWorldBounds(exportMetrics);
         const width = Math.ceil(bounds.w + margin * 2);
         const height = Math.ceil(bounds.h + margin * 2);
         const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -1456,8 +1507,8 @@ Temat główny
         drawExportBackground(ctx, width, height);
         const offsetX = margin - bounds.minX;
         const offsetY = margin - bounds.minY;
-        drawExportLinks(ctx, offsetX, offsetY);
-        drawExportNodes(ctx, offsetX, offsetY);
+        drawExportLinks(ctx, offsetX, offsetY, exportMetrics);
+        drawExportNodes(ctx, offsetX, offsetY, exportMetrics);
 
         canvas.toBlob((blob) => {
           if (!blob){
