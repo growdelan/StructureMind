@@ -764,6 +764,7 @@ Temat główny
       const LS_TEXT = "structureMind:text:v2";
       const LS_THEME = "structureMind:theme:v2";
       const LS_SIDEBAR = "structureMind:sidebarWidth:v2";
+      const SS_EXPORT_PNG_AFTER_RELOAD = "structureMind:exportPngAfterReload:v1";
 
       const INDENT = 2; // 2 spacje = poziom
       const LEVEL_COLORS = ["#22d3ee", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#6366f1"];
@@ -1578,6 +1579,17 @@ Temat główny
         }, "image/png");
       }
 
+      function requestPngExportWithReload(){
+        if (saveT){
+          clearTimeout(saveT);
+          saveT = null;
+        }
+        localStorage.setItem(LS_TEXT, editor.value);
+        sessionStorage.setItem(SS_EXPORT_PNG_AFTER_RELOAD, "1");
+        setStatus("Odświeżam mapę przed zapisem PNG...");
+        window.location.reload();
+      }
+
       /**********************
        * Fit / Center
        **********************/
@@ -1839,7 +1851,7 @@ Temat główny
       btnInsertExample2.addEventListener("click", () => { setExample(); closeHelp(); });
       btnHelp.addEventListener("click", openHelp);
       btnExportTxt.addEventListener("click", exportTxt);
-      btnExportPng.addEventListener("click", exportPng);
+      btnExportPng.addEventListener("click", requestPngExportWithReload);
       btnCloseHelp.addEventListener("click", closeHelp);
       btnCloseHelp2.addEventListener("click", closeHelp);
       modalBackdrop.addEventListener("click", (e) => { if (e.target === modalBackdrop) closeHelp(); });
@@ -1923,7 +1935,7 @@ Temat główny
       /**********************
        * Init
        **********************/
-      function loadPersisted(){
+      function loadPersisted(preserveSavedText=false){
         const theme = localStorage.getItem(LS_THEME) || "auto";
         setTheme(theme);
 
@@ -1933,7 +1945,7 @@ Temat główny
         }
 
         const saved = localStorage.getItem(LS_TEXT);
-        if (saved && saved.trim()){
+        if (saved !== null && (preserveSavedText || saved.trim())){
           editor.value = saved;
         } else {
           editor.value =
@@ -1944,9 +1956,20 @@ Temat główny
         }
       }
 
-      loadPersisted();
+      const exportPngAfterReload = sessionStorage.getItem(SS_EXPORT_PNG_AFTER_RELOAD) === "1";
+      if (exportPngAfterReload) sessionStorage.removeItem(SS_EXPORT_PNG_AFTER_RELOAD);
+
+      loadPersisted(exportPngAfterReload);
       scheduleRender();
       requestAnimationFrame(() => fitToView());
+      if (exportPngAfterReload){
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (renderQueued) renderMindMap();
+            exportPng();
+          });
+        });
+      }
       requestAnimationFrame(animateCamera);
     })();
   </script>
