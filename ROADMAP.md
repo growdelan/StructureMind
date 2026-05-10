@@ -57,3 +57,36 @@ Zakres:
 Uwagi:
 - poza zakresem są SVG, PDF, import TXT, wybór nazwy pliku i konfiguracja parametrów eksportu
 - implementacja nie może dodawać zewnętrznych zależności
+
+---
+
+## Milestone 2: Kolorowanie poziomów mapy myśli (planned)
+
+Cel:
+- poprawić czytelność mapy przez wizualne rozróżnienie poziomów hierarchii
+- nadać kropkom poziomów stałe kolory zgodne z poziomem wcięcia
+- nadać połączeniom kolor poziomu węzła docelowego
+- zachować zgodność kolorów między widokiem aplikacji i eksportem PNG
+
+Definition of Done:
+- poziom 0 zachowuje turkusowy kolor `#22d3ee`
+- poziomy 1-6 używają stałej palety kolorów z PRD `001-level-colors-prd.md`
+- poziomy 7+ powtarzają paletę poziomów 1-6 cyklicznie
+- kropka przy każdym węźle używa koloru poziomu tego węzła
+- połączenie do każdego węzła używa koloru poziomu tego węzła
+- eksport PNG zawiera te same kolory kropek i połączeń co widok mapy
+- eksport TXT pozostaje bez zmian
+- funkcja działa lokalnie, bez sieci i bez dodatkowych zależności
+- smoke testy kolorów poziomów, motywów i eksportu PNG przechodzą lokalnie
+
+Zakres:
+- dodanie wspólnej reguły wyboru koloru poziomu
+- kolorowanie kropek poziomów w widoku mapy
+- kolorowanie połączeń SVG kolorem poziomu węzła docelowego
+- odtworzenie tej samej reguły kolorów w eksporcie PNG
+- walidacja działania w motywie jasnym, ciemnym i auto
+- smoke test cyklicznego powtarzania palety dla poziomów głębszych niż 6
+
+Uwagi:
+- poza zakresem są edytor palety, presety palet, legenda kolorów, zmiana parsera wcięć oraz dodatkowe formaty eksportu
+- implementacja nie może dodawać zewnętrznych zależności
