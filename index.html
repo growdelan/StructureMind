@@ -667,6 +667,8 @@ Temat główny
         </div>
 
         <div class="toolbar">
+          <button class="btn secondary" id="btnExportTxt" title="Zapisz strukturę jako TXT">Zapisz TXT</button>
+          <button class="btn secondary" id="btnExportPng" title="Zapisz pełną mapę jako PNG">Zapisz PNG</button>
           <span class="pill nowrap" id="zoomPill">Zoom: 100%</span>
           <button class="btn secondary" id="btnZoomOut" title="Oddal">−</button>
           <button class="btn secondary" id="btnZoomIn" title="Przybliż">+</button>
@@ -737,9 +739,12 @@ Temat główny
       const nodesLayer = document.getElementById("nodesLayer");
       const statsText = document.getElementById("statsText");
       const zoomPill = document.getElementById("zoomPill");
+      const statusMsg = document.getElementById("statusMsg");
 
       const btnExample = document.getElementById("btnExample");
       const btnHelp = document.getElementById("btnHelp");
+      const btnExportTxt = document.getElementById("btnExportTxt");
+      const btnExportPng = document.getElementById("btnExportPng");
       const btnFit = document.getElementById("btnFit");
       const btnCenter = document.getElementById("btnCenter");
       const btnZoomIn = document.getElementById("btnZoomIn");
@@ -772,6 +777,7 @@ Temat główny
       let nodeElById = new Map();
       let pathElByKey = new Map();
       let selectedId = null;
+      let statusTimer = null;
 
       const cam = { x:0, y:0, z:1, tx:0, ty:0, tz:1 };
 
@@ -788,6 +794,16 @@ Temat główny
 
       const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
       const raf = (fn) => requestAnimationFrame(fn);
+      const DEFAULT_STATUS = "Przeciąganie: tło = panorama • kółko = zoom";
+
+      function setStatus(message, timeout=3200){
+        statusMsg.textContent = message;
+        if (statusTimer) clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => {
+          statusMsg.textContent = DEFAULT_STATUS;
+          statusTimer = null;
+        }, timeout);
+      }
 
       function setTheme(mode){
         document.documentElement.setAttribute("data-theme", mode);
@@ -1192,6 +1208,248 @@ Temat główny
       }
 
       /**********************
+       * Export
+       **********************/
+      function downloadBlob(blob, filename){
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      function exportTxt(){
+        if (!editor.value.trim()){
+          setStatus("Eksport TXT zablokowany: edytor jest pusty.");
+          return;
+        }
+
+        const blob = new Blob([editor.value], { type: "text/plain;charset=utf-8" });
+        downloadBlob(blob, "structuremind-map.txt");
+        setStatus("Zapisano TXT: structuremind-map.txt");
+      }
+
+      function cssVar(name){
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      function roundedRectPath(ctx, x, y, w, h, r){
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
+
+      function drawExportBackground(ctx, width, height){
+        const bg = ctx.createLinearGradient(0, 0, 0, height);
+        bg.addColorStop(0, cssVar("--bg0") || "#0b0f17");
+        bg.addColorStop(1, cssVar("--bg1") || "#0f1626");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+
+        const accentA = ctx.createRadialGradient(width * 0.22, height * 0.18, 0, width * 0.22, height * 0.18, Math.max(width, height) * 0.52);
+        accentA.addColorStop(0, "rgba(124,92,255,.18)");
+        accentA.addColorStop(1, "rgba(124,92,255,0)");
+        ctx.fillStyle = accentA;
+        ctx.fillRect(0, 0, width, height);
+
+        const accentB = ctx.createRadialGradient(width * 0.78, height * 0.20, 0, width * 0.78, height * 0.20, Math.max(width, height) * 0.50);
+        accentB.addColorStop(0, "rgba(34,211,238,.12)");
+        accentB.addColorStop(1, "rgba(34,211,238,0)");
+        ctx.fillStyle = accentB;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        ctx.strokeStyle = cssVar("--grid") || "rgba(255,255,255,.06)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= width; x += 96){
+          ctx.beginPath();
+          ctx.moveTo(x + 0.5, 0);
+          ctx.lineTo(x + 0.5, height);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= height; y += 96){
+          ctx.beginPath();
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(width, y + 0.5);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = cssVar("--grid2") || "rgba(255,255,255,.03)";
+        for (let x = 0; x <= width; x += 24){
+          ctx.beginPath();
+          ctx.moveTo(x + 0.5, 0);
+          ctx.lineTo(x + 0.5, height);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= height; y += 24){
+          ctx.beginPath();
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(width, y + 0.5);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function wrapCanvasText(ctx, text, maxWidth){
+        const words = text.split(/\s+/).filter(Boolean);
+        const lines = [];
+        let line = "";
+
+        for (const word of words){
+          const testLine = line ? `${line} ${word}` : word;
+          if (ctx.measureText(testLine).width <= maxWidth || !line){
+            line = testLine;
+          } else {
+            lines.push(line);
+            line = word;
+          }
+        }
+
+        if (line) lines.push(line);
+        return lines.length ? lines : [text];
+      }
+
+      function drawExportLinks(ctx, offsetX, offsetY){
+        for (const node of flatNodes){
+          if (!node.parent) continue;
+
+          const p = node.parent;
+          const x1 = offsetX + p.x + p.w;
+          const y1 = offsetY + p.y + p.h / 2;
+          const x2 = offsetX + node.x;
+          const y2 = offsetY + node.y + node.h / 2;
+          const dx = Math.max(60, (x2 - x1) * 0.55);
+
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.fillStyle = "transparent";
+          ctx.strokeStyle = document.documentElement.getAttribute("data-theme") === "light" ? "rgba(124,92,255,.22)" : "rgba(124,92,255,.18)";
+          ctx.lineWidth = 7;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.bezierCurveTo(x1 + dx, y1, x2 - dx, y2, x2, y2);
+          ctx.stroke();
+
+          ctx.strokeStyle = document.documentElement.getAttribute("data-theme") === "light" ? "rgba(10,20,40,.35)" : "rgba(255,255,255,.30)";
+          ctx.lineWidth = 2.25;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.bezierCurveTo(x1 + dx, y1, x2 - dx, y2, x2, y2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawExportNodes(ctx, offsetX, offsetY){
+        const textColor = cssVar("--text") || "#e8eefc";
+        const mutedColor = cssVar("--muted") || "#9aa6c3";
+        const borderColor = cssVar("--node-border") || "rgba(255,255,255,.14)";
+        const nodeBg = cssVar("--node-bg") || "rgba(255,255,255,.05)";
+        const nodeBg2 = cssVar("--node-bg2") || "rgba(255,255,255,.07)";
+        const fontFamily = cssVar("--font") || "system-ui, sans-serif";
+
+        for (const node of flatNodes){
+          const x = Math.round(offsetX + node.x);
+          const y = Math.round(offsetY + node.y);
+          const w = Math.round(node.w);
+          const h = Math.round(node.h);
+          const r = node.level === 0 ? 20 : 16;
+
+          ctx.save();
+          ctx.shadowColor = "rgba(0,0,0,.28)";
+          ctx.shadowBlur = 26;
+          ctx.shadowOffsetY = 10;
+          roundedRectPath(ctx, x, y, w, h, r);
+          const fill = ctx.createLinearGradient(x, y, x, y + h);
+          fill.addColorStop(0, nodeBg2);
+          fill.addColorStop(1, nodeBg);
+          ctx.fillStyle = fill;
+          ctx.fill();
+          ctx.restore();
+
+          roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r);
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          const padX = node.level === 0 ? 14 : 12;
+          const padY = node.level === 0 ? 12 : 10;
+          const labelSize = node.level === 0 ? 22 : (node.level === 1 ? 16 : 13);
+          const labelWeight = node.level <= 1 ? 760 : 700;
+          const labelLineHeight = Math.round(labelSize * 1.25);
+
+          ctx.fillStyle = textColor;
+          ctx.font = `${labelWeight} ${labelSize}px ${fontFamily}`;
+          ctx.textBaseline = "top";
+          const lines = wrapCanvasText(ctx, node.text, w - padX * 2);
+          let textY = y + padY;
+          for (const line of lines){
+            ctx.fillText(line, x + padX, textY);
+            textY += labelLineHeight;
+          }
+
+          const metaY = Math.min(y + h - 21, textY + 6);
+          ctx.fillStyle = node.level === 0 ? "rgba(34,211,238,.95)" : "rgba(124,92,255,.9)";
+          ctx.beginPath();
+          ctx.arc(x + padX + 3.5, metaY + 8, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = mutedColor;
+          ctx.font = `400 11px ${fontFamily}`;
+          ctx.fillText(`Poziom ${node.level}`, x + padX + 17, metaY + 2);
+        }
+      }
+
+      function exportPng(){
+        if (renderQueued) renderMindMap();
+
+        if (!flatNodes.length){
+          setStatus("Eksport PNG zablokowany: mapa jest pusta.");
+          return;
+        }
+
+        const margin = 64;
+        const bounds = computeWorldBounds();
+        const width = Math.ceil(bounds.w + margin * 2);
+        const height = Math.ceil(bounds.h + margin * 2);
+        const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(width * dpr);
+        canvas.height = Math.ceil(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+
+        const ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
+
+        drawExportBackground(ctx, width, height);
+        const offsetX = margin - bounds.minX;
+        const offsetY = margin - bounds.minY;
+        drawExportLinks(ctx, offsetX, offsetY);
+        drawExportNodes(ctx, offsetX, offsetY);
+
+        canvas.toBlob((blob) => {
+          if (!blob){
+            setStatus("Nie udało się przygotować pliku PNG.");
+            return;
+          }
+          downloadBlob(blob, "structuremind-map.png");
+          setStatus("Zapisano PNG: structuremind-map.png");
+        }, "image/png");
+      }
+
+      /**********************
        * Fit / Center
        **********************/
       function fitToView(){
@@ -1451,6 +1709,8 @@ Temat główny
       btnExample.addEventListener("click", setExample);
       btnInsertExample2.addEventListener("click", () => { setExample(); closeHelp(); });
       btnHelp.addEventListener("click", openHelp);
+      btnExportTxt.addEventListener("click", exportTxt);
+      btnExportPng.addEventListener("click", exportPng);
       btnCloseHelp.addEventListener("click", closeHelp);
       btnCloseHelp2.addEventListener("click", closeHelp);
       modalBackdrop.addEventListener("click", (e) => { if (e.target === modalBackdrop) closeHelp(); });
@@ -1563,4 +1823,3 @@ Temat główny
   </script>
 </body>
 </html>
-
