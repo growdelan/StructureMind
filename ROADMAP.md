@@ -60,7 +60,7 @@ Uwagi:
 
 ---
 
-## Milestone 2: Kolorowanie poziomów mapy myśli (planned)
+## Milestone 2: Kolorowanie poziomów mapy myśli (done)
 
 Cel:
 - poprawić czytelność mapy przez wizualne rozróżnienie poziomów hierarchii

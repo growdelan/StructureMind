@@ -507,8 +507,8 @@
       width: 7px;
       height: 7px;
       border-radius: 999px;
-      background: rgba(124,92,255,.9);
-      box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+      background: var(--level-color, rgba(124,92,255,.9));
+      box-shadow: 0 0 0 4px var(--level-color-soft, rgba(124,92,255,.18));
       flex:none;
     }
 
@@ -516,7 +516,6 @@
     .lvl1 .label{ font-size: 16px; }
     .lvl2 .label, .lvl3 .label, .lvl4 .label, .lvl5 .label{ font-size: 13px; font-weight: 700; }
     .lvl0{ border-radius: 20px; padding: 12px 14px; }
-    .lvl0 .dot{ background: rgba(34,211,238,.95); box-shadow: 0 0 0 4px rgba(34,211,238,.18); }
 
     .status{
       position:absolute;
@@ -767,6 +766,7 @@ Temat główny
       const LS_SIDEBAR = "structureMind:sidebarWidth:v2";
 
       const INDENT = 2; // 2 spacje = poziom
+      const LEVEL_COLORS = ["#22d3ee", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#6366f1"];
       const GAP_X = 120;
       const GAP_Y = 26;
       const ROOT_MARGIN = 54;
@@ -795,6 +795,19 @@ Temat główny
       const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
       const raf = (fn) => requestAnimationFrame(fn);
       const DEFAULT_STATUS = "Przeciąganie: tło = panorama • kółko = zoom";
+
+      function getLevelColor(level){
+        if (level <= 0) return LEVEL_COLORS[0];
+        return LEVEL_COLORS[((level - 1) % (LEVEL_COLORS.length - 1)) + 1];
+      }
+
+      function colorWithAlpha(hex, alpha){
+        const normalized = hex.replace("#", "");
+        const r = parseInt(normalized.slice(0, 2), 16);
+        const g = parseInt(normalized.slice(2, 4), 16);
+        const b = parseInt(normalized.slice(4, 6), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+      }
 
       function setStatus(message, timeout=3200){
         statusMsg.textContent = message;
@@ -998,12 +1011,15 @@ Temat główny
         const frag = document.createDocumentFragment();
 
         for (const node of flatNodes){
+          const levelColor = getLevelColor(node.level);
           const el = document.createElement("div");
           el.className = `node lvl${Math.min(5, node.level)}`;
           el.dataset.id = String(node.id);
           el.style.visibility = "hidden";
           el.style.setProperty("--x", "0px");
           el.style.setProperty("--y", "0px");
+          el.style.setProperty("--level-color", levelColor);
+          el.style.setProperty("--level-color-soft", colorWithAlpha(levelColor, 0.18));
 
           const label = document.createElement("span");
           label.className = "label";
@@ -1097,15 +1113,18 @@ Temat główny
 
           const dx = Math.max(60, (x2 - x1) * 0.55);
           const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+          const levelColor = getLevelColor(node.level);
 
           const glow = document.createElementNS("http://www.w3.org/2000/svg", "path");
           glow.setAttribute("d", d);
           glow.setAttribute("class", "linkPath glow");
+          glow.style.stroke = colorWithAlpha(levelColor, 0.20);
           frag.appendChild(glow);
 
           const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
           path.setAttribute("d", d);
           path.setAttribute("class", "linkPath");
+          path.style.stroke = colorWithAlpha(levelColor, 0.78);
 
           if (animated){
             const length = 600;
@@ -1330,18 +1349,19 @@ Temat główny
           const x2 = offsetX + node.x;
           const y2 = offsetY + node.y + node.h / 2;
           const dx = Math.max(60, (x2 - x1) * 0.55);
+          const levelColor = getLevelColor(node.level);
 
           ctx.save();
           ctx.lineCap = "round";
           ctx.fillStyle = "transparent";
-          ctx.strokeStyle = document.documentElement.getAttribute("data-theme") === "light" ? "rgba(124,92,255,.22)" : "rgba(124,92,255,.18)";
+          ctx.strokeStyle = colorWithAlpha(levelColor, 0.20);
           ctx.lineWidth = 7;
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.bezierCurveTo(x1 + dx, y1, x2 - dx, y2, x2, y2);
           ctx.stroke();
 
-          ctx.strokeStyle = document.documentElement.getAttribute("data-theme") === "light" ? "rgba(10,20,40,.35)" : "rgba(255,255,255,.30)";
+          ctx.strokeStyle = colorWithAlpha(levelColor, 0.78);
           ctx.lineWidth = 2.25;
           ctx.beginPath();
           ctx.moveTo(x1, y1);
@@ -1400,7 +1420,7 @@ Temat główny
           }
 
           const metaY = Math.min(y + h - 21, textY + 6);
-          ctx.fillStyle = node.level === 0 ? "rgba(34,211,238,.95)" : "rgba(124,92,255,.9)";
+          ctx.fillStyle = getLevelColor(node.level);
           ctx.beginPath();
           ctx.arc(x + padX + 3.5, metaY + 8, 3.5, 0, Math.PI * 2);
           ctx.fill();
