@@ -27,7 +27,7 @@
 - Brak znanych blockerów krytycznych.
 - Projekt pozostaje statyczny i bez zależności; nowe biblioteki lub narzędzia wymagają uzasadnienia w `spec.md`.
 - Eksport PNG działa przez Canvas API przeglądarki, więc przy zmianach renderowania mapy warto odtworzyć adekwatną walidację przeglądarkową.
-- Pierwsza publikacja GitHub Pages zależy od powodzenia workflow w GitHub Actions oraz aktywnego ustawienia Pages typu GitHub Actions.
+- Publikacja GitHub Pages działa z brancha `main`, zgodnie z regułami środowiska `github-pages`.
 
 ## Ostatnie aktualizacje
 - 2026-05-10: dodano publikację GitHub Pages przez GitHub Actions i zaktualizowano screenshot w README.

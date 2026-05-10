@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - codex/save
   workflow_dispatch:
 
 permissions:

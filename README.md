@@ -19,4 +19,4 @@ Po uruchomieniu serwera aplikacja jest dostępna pod adresem `http://localhost:8
 
 ## Publikacja
 
-Aplikacja jest publikowana jako statyczna strona GitHub Pages przez workflow `.github/workflows/deploy-pages.yml`. Deployment uruchamia się po pushu na `main` oraz `codex/save`; można go też uruchomić ręcznie z zakładki Actions.
+Aplikacja jest publikowana jako statyczna strona GitHub Pages przez workflow `.github/workflows/deploy-pages.yml`. Deployment uruchamia się po pushu na `main`; można go też uruchomić ręcznie z zakładki Actions.
