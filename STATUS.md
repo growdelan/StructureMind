@@ -11,8 +11,8 @@
 ## Co jest skończone
 - Milestone 0.5: minimalny działający slice aplikacji.
 - Milestone 1: eksport mapy do TXT i PNG.
-- Smoke test `test.html` obejmuje dostępność przycisków eksportu, eksport TXT, blokadę pustego TXT, eksport PNG i blokadę pustej mapy.
-- Ostatnia walidacja smoke testów przez headless Chromium/Playwright: `5/5 testów zakończonych powodzeniem`.
+- Tymczasowy smoke test `test.html` został usunięty po walidacji, bo nie jest już potrzebny w repo.
+- Ostatnia walidacja przed usunięciem testu: headless Chromium/Playwright, `5/5 testów zakończonych powodzeniem`.
 - Self-review batcha: brak problemów krytycznych.
 
 ## Co jest w trakcie
@@ -24,7 +24,8 @@
 ## Blokery i ryzyka
 - Brak znanych blockerów krytycznych.
 - Projekt pozostaje statyczny i bez zależności; nowe biblioteki lub narzędzia wymagają uzasadnienia w `spec.md`.
-- Eksport PNG działa przez Canvas API przeglądarki, więc należy utrzymywać smoke test przy zmianach renderowania mapy.
+- Eksport PNG działa przez Canvas API przeglądarki, więc przy zmianach renderowania mapy warto odtworzyć adekwatną walidację przeglądarkową.
 
 ## Ostatnie aktualizacje
-- 2026-05-10: zakończono Milestone 1, dodano lokalny eksport TXT/PNG i smoke test `test.html`; końcowa walidacja nie wykazała problemów krytycznych.
+- 2026-05-10: usunięto tymczasowy plik `test.html`, który nie będzie dalej utrzymywany w repo.
+- 2026-05-10: zakończono Milestone 1, dodano lokalny eksport TXT/PNG; końcowa walidacja nie wykazała problemów krytycznych.
