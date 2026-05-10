@@ -7,10 +7,12 @@
 - Eksport TXT zapisuje bieżącą treść edytora do `structuremind-map.txt`.
 - Eksport PNG zapisuje pełną mapę do `structuremind-map.png` z tłem i marginesem `64px`.
 - Puste stany eksportu TXT i PNG są blokowane komunikatem w UI.
+- Aplikacja ma konfigurację publikacji na GitHub Pages pod adresem `https://growdelan.github.io/StructureMind/`.
 
 ## Co jest skończone
 - Milestone 0.5: minimalny działający slice aplikacji.
 - Milestone 1: eksport mapy do TXT i PNG.
+- Publikacja GitHub Pages przez workflow `.github/workflows/deploy-pages.yml`.
 - Tymczasowy smoke test `test.html` został usunięty po walidacji, bo nie jest już potrzebny w repo.
 - Ostatnia walidacja przed usunięciem testu: headless Chromium/Playwright, `5/5 testów zakończonych powodzeniem`.
 - Self-review batcha: brak problemów krytycznych.
@@ -25,7 +27,9 @@
 - Brak znanych blockerów krytycznych.
 - Projekt pozostaje statyczny i bez zależności; nowe biblioteki lub narzędzia wymagają uzasadnienia w `spec.md`.
 - Eksport PNG działa przez Canvas API przeglądarki, więc przy zmianach renderowania mapy warto odtworzyć adekwatną walidację przeglądarkową.
+- Pierwsza publikacja GitHub Pages zależy od powodzenia workflow w GitHub Actions oraz aktywnego ustawienia Pages typu GitHub Actions.
 
 ## Ostatnie aktualizacje
+- 2026-05-10: dodano publikację GitHub Pages przez GitHub Actions i zaktualizowano screenshot w README.
 - 2026-05-10: usunięto tymczasowy plik `test.html`, który nie będzie dalej utrzymywany w repo.
 - 2026-05-10: zakończono Milestone 1, dodano lokalny eksport TXT/PNG; końcowa walidacja nie wykazała problemów krytycznych.

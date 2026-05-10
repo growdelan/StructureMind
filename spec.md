@@ -85,6 +85,10 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Uzasadnienie: obraz ma odzwierciedlać mapę dopracowaną przez użytkownika, niezależnie od aktualnego viewportu.
 - Konsekwencje: mechanizm eksportu musi uwzględniać pełne granice mapy, tło, motyw, połączenia, węzły i margines.
 
+- Decyzja: publiczna wersja aplikacji jest publikowana przez GitHub Pages z użyciem GitHub Actions.
+- Uzasadnienie: aplikacja jest statyczna, więc może być hostowana bez backendu i bez dodatkowych zależności runtime.
+- Konsekwencje: publikacja zależy od workflow `.github/workflows/deploy-pages.yml`, a lokalne działanie aplikacji pozostaje bez zmian.
+
 ---
 
 ## Jakość i kryteria akceptacji
@@ -96,7 +100,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - PNG zawiera pełną mapę, nie tylko aktualnie widoczny fragment viewportu.
 - PNG zawiera aktualny wygląd mapy, tło i margines `64px`.
 - Puste stany są blokowane i komunikowane w UI bez wyskakujących alertów.
-- Smoke testy dla `index.html` i `test.html` weryfikują podstawowe przepływy eksportu.
+- Walidacja przeglądarkowa powinna obejmować uruchomienie `index.html` oraz podstawowe przepływy eksportu.
 
 ---
 
