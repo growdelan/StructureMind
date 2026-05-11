@@ -9,6 +9,7 @@
 - Eksport TXT zapisuje bieżącą treść edytora do `structuremind-map.txt`.
 - Eksport PNG zapisuje pełną mapę do `structuremind-map.png` z tłem, marginesem `64px` i kolorami poziomów zgodnymi z widokiem.
 - Puste stany eksportu TXT i PNG są blokowane komunikatem w UI.
+- Kod `index.html` został przeczyszczony z potwierdzonych martwych elementów i nieaktualnych komentarzy technicznych `FIX #1` / `FIX #2`.
 - Aplikacja ma konfigurację publikacji na GitHub Pages pod adresem `https://growdelan.github.io/StructureMind/`.
 
 ## Co jest skończone
@@ -16,6 +17,9 @@
 - Milestone 1: eksport mapy do TXT i PNG.
 - Milestone 2: kolorowanie poziomów mapy myśli.
 - Milestone 3: ukrywanie lewego panelu edytora.
+- Milestone 4: sprzątanie martwego kodu i komentarzy technicznych.
+- Ostatnia walidacja Milestone 4: statyczny check braku usuwanych symboli w `index.html` oraz headless Chromium/Playwright dla renderowania mapy, ukrywania i przywracania panelu, zoomu, dopasowania, centrowania, eksportu TXT/PNG i braku błędów konsoli.
+- Self-review batcha Milestone 4: brak problemów krytycznych.
 - Publikacja GitHub Pages przez workflow `.github/workflows/deploy-pages.yml`.
 - Ostatnia walidacja Milestone 3: składnia skryptu, headless Chromium/Playwright dla desktop/mobile, ukrywanie i przywracanie panelu, zapamiętanie stanu, zachowanie szerokości, eksport TXT/PNG, zoom, dopasowanie, centrowanie, motyw i brak błędów konsoli.
 - Self-review batcha Milestone 3: wykryto i poprawiono jedną drobną kwestię jakościową dotyczącą komunikatu statusu przy inicjalizacji ukrytego panelu; po poprawce rewalidacja przeszła.
@@ -40,6 +44,7 @@
 - Publikacja GitHub Pages działa z brancha `main`, zgodnie z regułami środowiska `github-pages`.
 
 ## Ostatnie aktualizacje
+- 2026-05-11: zakończono Milestone 4, dodano PRD `003-code-cleanup-prd.md`, zaktualizowano dokumentację i przeczyszczono potwierdzone martwe elementy oraz komentarze techniczne z `index.html`.
 - 2026-05-11: zakończono Milestone 3, dodano ukrywanie i przywracanie panelu edytora z zapamiętaniem stanu oraz rozmiaru panelu.
 - 2026-05-11: dodano PRD `002-hide-editor-panel-prd.md` oraz zaktualizowano `spec.md` i `ROADMAP.md` dla ukrywania panelu edytora.
 - 2026-05-10: dodano pełne odświeżenie strony przed eksportem PNG oraz auto-eksport po ponownym renderze.

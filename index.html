@@ -12,19 +12,15 @@
       --panel2:#0f1729;
       --text:#e8eefc;
       --muted:#9aa6c3;
-      --muted2:#6f7da0;
       --border:rgba(255,255,255,.10);
       --border2:rgba(255,255,255,.07);
       --shadow: 0 10px 30px rgba(0,0,0,.35);
       --shadow2: 0 12px 60px rgba(0,0,0,.45);
       --glow: 0 0 0 1px rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.25);
-      --accent:#7c5cff;
-      --accent2:#22d3ee;
 
       --radius:18px;
       --radius2:26px;
       --gap:14px;
-      --indent:2; /* 2 spacje = 1 poziom */
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
 
@@ -45,7 +41,6 @@
       --panel2: rgba(255,255,255,.60);
       --text:#0b1020;
       --muted:#51607f;
-      --muted2:#6a7897;
       --border:rgba(10,20,40,.12);
       --border2:rgba(10,20,40,.08);
       --shadow: 0 10px 30px rgba(10,20,40,.12);
@@ -68,7 +63,6 @@
         --panel2: rgba(255,255,255,.60);
         --text:#0b1020;
         --muted:#51607f;
-        --muted2:#6a7897;
         --border:rgba(10,20,40,.12);
         --border2:rgba(10,20,40,.08);
         --shadow: 0 10px 30px rgba(10,20,40,.12);
@@ -103,7 +97,6 @@
       position:relative;
     }
 
-    /* ✅ FIX #1: sidebar + editor card now truly stretch; textarea becomes large */
     .sidebar{
       width: 480px;            /* trochę większy domyślnie */
       min-width: 280px;
@@ -163,7 +156,6 @@
       overflow:hidden;
     }
 
-    /* ✅ FIX #1: make the editor card fill remaining sidebar height */
     .editorCard{
       display:flex;
       flex-direction:column;
@@ -242,7 +234,6 @@
       background: transparent;
     }
 
-    /* ✅ FIX #2: pills can wrap + never overflow into map */
     .pill{
       display:inline-flex;
       align-items:center;
@@ -619,7 +610,6 @@
   <div class="app" id="app">
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-      <!-- ✅ FIX #1: editorCard is flex and fills sidebar -->
       <div class="card editorCard">
         <div class="cardHeader">
           <div class="titleWrap">
@@ -649,7 +639,6 @@ Temat główny
         </div>
       </div>
 
-      <!-- ✅ FIX #2: this pill wraps and stays inside sidebar -->
       <div class="pill" title="Wskazówka">
         🟣 Kliknij węzeł, aby zaznaczyć odpowiadającą linię w edytorze. Przeciągnij węzeł, aby go ręcznie przesunąć (linie aktualizują się na żywo).
       </div>
@@ -689,7 +678,7 @@ Temat główny
           <div id="nodesLayer"></div>
         </div>
 
-        <div class="status" id="status">
+        <div class="status">
           <span id="statusMsg">Przeciąganie: tło = panorama • kółko = zoom</span>
         </div>
       </div>
@@ -799,7 +788,6 @@ Temat główny
         startTx: 0, startTy: 0,
         moved: false,
         nodeId: null,
-        nodeStartX: 0, nodeStartY: 0,
         nodeOffX: 0, nodeOffY: 0
       };
 
@@ -1059,7 +1047,6 @@ Temat główny
           const levelColor = getLevelColor(node.level);
           const el = document.createElement("div");
           el.className = `node lvl${Math.min(5, node.level)}`;
-          el.dataset.id = String(node.id);
           el.style.visibility = "hidden";
           el.style.setProperty("--x", "0px");
           el.style.setProperty("--y", "0px");
