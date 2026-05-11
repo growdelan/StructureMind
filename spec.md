@@ -8,6 +8,7 @@ Projekt jest przeznaczony dla osób, które chcą szybko zaplanować, uporządko
 Zakres aplikacji obejmuje:
 - wpisywanie i edycję tekstowej struktury mapy,
 - wizualizację pełnej mapy myśli,
+- ukrywanie i ponowne pokazywanie panelu edytora,
 - kolorowanie poziomów hierarchii w mapie myśli,
 - lokalny zapis źródłowej struktury jako pliku TXT,
 - lokalny zapis pełnej mapy jako pliku PNG.
@@ -21,17 +22,20 @@ Kluczowe use-case’y:
 - użytkownik wpisuje strukturę tekstową z wcięciami i widzi odpowiadającą jej mapę myśli,
 - użytkownik szybciej rozpoznaje poziomy zagnieżdżenia dzięki kolorom kropek i połączeń,
 - użytkownik dopracowuje wygląd i układ mapy w aktualnym interfejsie,
+- użytkownik ukrywa panel edytora, aby skupić się na mapie i wykorzystać pełną przestrzeń aplikacji,
 - użytkownik zapisuje dokładną treść edytora do pliku `structuremind-map.txt`,
 - użytkownik zapisuje pełną mapę do pliku `structuremind-map.png`.
 
 Główne przepływy użytkownika:
 - wpisanie lub zmiana tekstu w edytorze aktualizuje mapę,
 - każdy poziom wcięcia otrzymuje spójny kolor kropki i połączenia prowadzącego do węzła,
+- kliknięcie `Ukryj edytor` chowa panel edytora i uchwyt zmiany rozmiaru, a mapa zajmuje dostępną przestrzeń,
+- kliknięcie `Pokaż edytor` przywraca panel edytora w poprzednim rozmiarze,
 - kliknięcie `Zapisz TXT` pobiera plik tekstowy, jeśli edytor nie jest pusty,
 - kliknięcie `Zapisz PNG` pobiera obraz pełnej mapy, jeśli mapa nie jest pusta,
 - przy pustym edytorze albo pustej mapie aplikacja blokuje eksport i pokazuje krótki komunikat w UI.
 
-Aplikacja nie wykonuje normalizacji treści TXT, nie wysyła danych poza przeglądarkę i nie oferuje konfiguracji parametrów eksportu ani palety kolorów poziomów.
+Aplikacja nie wykonuje normalizacji treści TXT, nie wysyła danych poza przeglądarkę i nie oferuje konfiguracji parametrów eksportu, palety kolorów poziomów ani zaawansowanych trybów panelu edytora.
 
 ---
 
@@ -42,6 +46,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
    - edytor tekstowy struktury mapy,
    - renderer mapy myśli,
    - reguła kolorowania poziomów hierarchii,
+   - kontrola widoczności panelu edytora,
    - warstwa interakcji użytkownika,
    - mechanizm lokalnego eksportu TXT,
    - mechanizm lokalnego eksportu PNG,
@@ -51,6 +56,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
    - użytkownik wpisuje tekst w edytorze,
    - aplikacja interpretuje tekst jako hierarchię węzłów,
    - renderer prezentuje mapę w widoku i przypisuje kolory na podstawie poziomu węzła,
+   - użytkownik może przełączyć widoczność panelu edytora bez zmiany treści mapy,
    - eksport TXT korzysta bezpośrednio z bieżącej wartości edytora,
    - eksport PNG korzysta z aktualnie wyrenderowanej pełnej mapy, jej wyglądu i reguły kolorowania poziomów,
    - komunikaty statusu informują o sukcesie albo blokadzie eksportu.
@@ -58,6 +64,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 3. Granice odpowiedzialności
    - edytor odpowiada za źródłową strukturę tekstową,
    - renderer odpowiada za wizualną reprezentację mapy, w tym kolory kropek i połączeń poziomów,
+   - kontrola widoczności panelu odpowiada za ukrycie lub pokazanie edytora i uchwytu zmiany rozmiaru bez modyfikowania danych mapy,
    - eksport TXT odpowiada za pobranie dokładnej treści edytora bez modyfikacji,
    - eksport PNG odpowiada za obraz pełnej mapy z tłem, marginesem i kolorami poziomów zgodnymi z widokiem,
    - aplikacja nie odpowiada za przechowywanie plików po stronie serwera ani synchronizację danych.
@@ -70,7 +77,8 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Parser struktury: interpretuje tekst z wcięciami jako hierarchię węzłów mapy.
 - Renderer mapy: tworzy wizualną mapę z węzłami, połączeniami, tłem, aktualnym motywem i kolorami poziomów.
 - Reguła kolorów poziomów: przypisuje poziomowi 0 kolor turkusowy, poziomom 1-6 stałą paletę kolorów, a poziomom 7+ kolory powtarzane cyklicznie od poziomu 1.
-- Kontrolki UI: obsługują akcje użytkownika, w tym przyciski `Zapisz TXT` i `Zapisz PNG`.
+- Kontrolki UI: obsługują akcje użytkownika, w tym przyciski `Ukryj edytor` / `Pokaż edytor`, `Zapisz TXT` i `Zapisz PNG`.
+- Kontrola widoczności panelu: chowa lub pokazuje panel edytora razem z uchwytem zmiany rozmiaru oraz zapamiętuje ostatni stan w `localStorage`.
 - Eksporter TXT: generuje lokalny plik `structuremind-map.txt` z dokładną treścią edytora.
 - Eksporter PNG: generuje lokalny plik `structuremind-map.png` obejmujący pełną mapę z marginesem `64px` i kolorowaniem poziomów zgodnym z widokiem.
 - Komunikaty statusu: pokazują krótkie informacje o sukcesie lub zablokowanym eksporcie.
@@ -102,11 +110,22 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Uzasadnienie: linia i kropka węzła powinny wspólnie komunikować ten sam poziom hierarchii.
 - Konsekwencje: renderer DOM/SVG i eksporter PNG muszą korzystać z tej samej reguły wyboru koloru poziomu.
 
+- Decyzja (dotyczy PRD: 002-hide-editor-panel-prd.md): panel edytora jest chowany całkowicie razem z uchwytem zmiany rozmiaru, a przełącznik pozostaje w topbarze mapy.
+- Uzasadnienie: użytkownik ma odzyskać pełną przestrzeń dla mapy i nadal mieć dostęp do przywrócenia edytora.
+- Konsekwencje: układ musi obsługiwać stany `Ukryj edytor` i `Pokaż edytor` na desktopie oraz mobile bez zmiany danych mapy.
+
+- Decyzja (dotyczy PRD: 002-hide-editor-panel-prd.md): stan widoczności panelu edytora jest zapamiętywany lokalnie.
+- Uzasadnienie: zachowanie jest spójne z istniejącym lokalnym zapisem ustawień interfejsu, w tym szerokości panelu.
+- Konsekwencje: aplikacja musi przechowywać widoczność panelu w `localStorage`, niezależnie od zapamiętanego rozmiaru panelu.
+
 ---
 
 ## Jakość i kryteria akceptacji
 - Aplikacja działa lokalnie bez sieci i bez zewnętrznych usług.
 - Dane użytkownika nie opuszczają przeglądarki.
+- Panel edytora można całkowicie ukryć i ponownie pokazać przyciskiem w topbarze mapy.
+- Po ukryciu panelu znika również uchwyt zmiany rozmiaru, a mapa zajmuje dostępną przestrzeń.
+- Stan widoczności panelu oraz wcześniej ustawiony rozmiar panelu są zachowywane lokalnie.
 - Eksport TXT pobiera `structuremind-map.txt` tylko wtedy, gdy edytor zawiera niepustą treść.
 - Zawartość TXT jest identyczna z treścią edytora.
 - Eksport PNG pobiera `structuremind-map.png` tylko wtedy, gdy istnieje mapa do zapisania.
@@ -134,5 +153,5 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 
 ## Status specyfikacji
 - Data utworzenia: 2026-05-10
-- Ostatnia aktualizacja: 2026-05-10
-- Aktualny zakres obowiązywania: struktura tekstowa mapy, wizualizacja mapy, kolorowanie poziomów hierarchii oraz lokalny eksport TXT i PNG.
+- Ostatnia aktualizacja: 2026-05-11
+- Aktualny zakres obowiązywania: struktura tekstowa mapy, wizualizacja mapy, ukrywanie panelu edytora, kolorowanie poziomów hierarchii oraz lokalny eksport TXT i PNG.

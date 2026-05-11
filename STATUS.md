@@ -4,6 +4,7 @@
 - Statyczna aplikacja `index.html` uruchamia się lokalnie w przeglądarce.
 - Użytkownik może tworzyć mapę myśli z tekstowej struktury z wcięciami.
 - Mapa jest renderowana lokalnie bez backendu, sieci i zewnętrznych zależności.
+- Panel edytora można ukryć i ponownie pokazać z topbara mapy; stan widoczności oraz rozmiar panelu są zapamiętywane lokalnie.
 - Poziomy mapy są wyróżniane stałymi kolorami kropek i połączeń, z cyklicznym powtarzaniem palety dla poziomów 7+.
 - Eksport TXT zapisuje bieżącą treść edytora do `structuremind-map.txt`.
 - Eksport PNG zapisuje pełną mapę do `structuremind-map.png` z tłem, marginesem `64px` i kolorami poziomów zgodnymi z widokiem.
@@ -14,7 +15,10 @@
 - Milestone 0.5: minimalny działający slice aplikacji.
 - Milestone 1: eksport mapy do TXT i PNG.
 - Milestone 2: kolorowanie poziomów mapy myśli.
+- Milestone 3: ukrywanie lewego panelu edytora.
 - Publikacja GitHub Pages przez workflow `.github/workflows/deploy-pages.yml`.
+- Ostatnia walidacja Milestone 3: składnia skryptu, headless Chromium/Playwright dla desktop/mobile, ukrywanie i przywracanie panelu, zapamiętanie stanu, zachowanie szerokości, eksport TXT/PNG, zoom, dopasowanie, centrowanie, motyw i brak błędów konsoli.
+- Self-review batcha Milestone 3: wykryto i poprawiono jedną drobną kwestię jakościową dotyczącą komunikatu statusu przy inicjalizacji ukrytego panelu; po poprawce rewalidacja przeszła.
 - Tymczasowy smoke test `test.html` został usunięty po walidacji, bo nie jest już potrzebny w repo.
 - Ostatnia walidacja przed usunięciem testu: headless Chromium/Playwright, `5/5 testów zakończonych powodzeniem`.
 - Ostatnia walidacja Milestone 2: składnia skryptu, smoke test przeglądarkowy poziomów 0-9, przełączanie motywów, eksport PNG i brak błędów konsoli.
@@ -36,6 +40,8 @@
 - Publikacja GitHub Pages działa z brancha `main`, zgodnie z regułami środowiska `github-pages`.
 
 ## Ostatnie aktualizacje
+- 2026-05-11: zakończono Milestone 3, dodano ukrywanie i przywracanie panelu edytora z zapamiętaniem stanu oraz rozmiaru panelu.
+- 2026-05-11: dodano PRD `002-hide-editor-panel-prd.md` oraz zaktualizowano `spec.md` i `ROADMAP.md` dla ukrywania panelu edytora.
 - 2026-05-10: dodano pełne odświeżenie strony przed eksportem PNG oraz auto-eksport po ponownym renderze.
 - 2026-05-10: doprecyzowano układ eksportu PNG, aby rozbudowane mapy nie rozsypywały się po zwiększeniu wysokości węzłów.
 - 2026-05-10: naprawiono regresję eksportu PNG, w której etykieta węzła i metadane poziomu mogły nachodzić na siebie.

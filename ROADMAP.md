@@ -90,3 +90,37 @@ Zakres:
 Uwagi:
 - poza zakresem są edytor palety, presety palet, legenda kolorów, zmiana parsera wcięć oraz dodatkowe formaty eksportu
 - implementacja nie może dodawać zewnętrznych zależności
+
+---
+
+## Milestone 3: Ukrywanie lewego panelu edytora (done)
+
+Cel:
+- umożliwić użytkownikowi schowanie panelu edytora, aby mapa mogła zająć całą dostępną przestrzeń
+- umożliwić szybkie ponowne pokazanie panelu edytora bez utraty treści i rozmiaru panelu
+- zachować prosty, statyczny charakter aplikacji bez zewnętrznych zależności
+
+Definition of Done:
+- w topbarze mapy jest dostępny przycisk `Ukryj edytor`, gdy panel jest widoczny
+- kliknięcie `Ukryj edytor` całkowicie chowa panel edytora i uchwyt zmiany rozmiaru
+- po ukryciu panelu mapa zajmuje całą dostępną przestrzeń aplikacji
+- po ukryciu panelu przycisk zmienia etykietę na `Pokaż edytor`
+- kliknięcie `Pokaż edytor` przywraca panel edytora i uchwyt zmiany rozmiaru
+- treść edytora pozostaje bez zmian po schowaniu i ponownym pokazaniu panelu
+- ostatni stan widoczności panelu jest zapamiętywany w `localStorage`
+- wcześniej zapisany rozmiar panelu pozostaje zachowany po schowaniu i ponownym pokazaniu
+- funkcja działa na desktopie i na wąskich ekranach
+- eksport TXT/PNG, zoom, dopasowanie widoku, centrowanie i zmiana motywu pozostają bez regresji
+- smoke testy ukrywania panelu, przywracania panelu, zapamiętania stanu, zachowania rozmiaru, mobile i regresji istniejących funkcji przechodzą lokalnie
+
+Zakres:
+- dodanie przełącznika widoczności panelu edytora do istniejącego topbara mapy
+- pełne ukrywanie i pokazywanie panelu edytora razem z uchwytem zmiany rozmiaru
+- rozszerzanie obszaru mapy po ukryciu panelu na desktopie i mobile
+- zapamiętanie stanu widoczności panelu w `localStorage`
+- zachowanie istniejącego zapisu szerokości lub wysokości panelu
+- walidacja działania bez zmian w parserze, renderowaniu mapy oraz eksportach TXT/PNG
+
+Uwagi:
+- poza zakresem są skróty klawiaturowe, tryb overlay, zwężanie panelu do paska, animowane tryby panelu i nowe zależności
+- implementacja nie może dodawać zewnętrznych zależności
