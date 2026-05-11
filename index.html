@@ -141,6 +141,11 @@
     }
     .resizer:hover::before{ opacity:1; width:3px; }
 
+    .app.sidebar-collapsed .sidebar,
+    .app.sidebar-collapsed .resizer{
+      display:none;
+    }
+
     .main{
       flex:1;
       height:100%;
@@ -611,7 +616,7 @@
 </head>
 
 <body>
-  <div class="app">
+  <div class="app" id="app">
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <!-- ✅ FIX #1: editorCard is flex and fills sidebar -->
@@ -666,6 +671,7 @@ Temat główny
         </div>
 
         <div class="toolbar">
+          <button class="btn secondary" id="btnToggleSidebar" title="Ukryj panel edytora">Ukryj edytor</button>
           <button class="btn secondary" id="btnExportTxt" title="Zapisz strukturę jako TXT">Zapisz TXT</button>
           <button class="btn secondary" id="btnExportPng" title="Zapisz pełną mapę jako PNG">Zapisz PNG</button>
           <span class="pill nowrap" id="zoomPill">Zoom: 100%</span>
@@ -732,6 +738,7 @@ Temat główny
        * DOM
        **********************/
       const editor = document.getElementById("editor");
+      const app = document.getElementById("app");
       const viewport = document.getElementById("viewport");
       const world = document.getElementById("world");
       const linksSvg = document.getElementById("links");
@@ -742,6 +749,7 @@ Temat główny
 
       const btnExample = document.getElementById("btnExample");
       const btnHelp = document.getElementById("btnHelp");
+      const btnToggleSidebar = document.getElementById("btnToggleSidebar");
       const btnExportTxt = document.getElementById("btnExportTxt");
       const btnExportPng = document.getElementById("btnExportPng");
       const btnFit = document.getElementById("btnFit");
@@ -764,6 +772,8 @@ Temat główny
       const LS_TEXT = "structureMind:text:v2";
       const LS_THEME = "structureMind:theme:v2";
       const LS_SIDEBAR = "structureMind:sidebarWidth:v2";
+      const LS_SIDEBAR_HEIGHT = "structureMind:sidebarHeight:v2";
+      const LS_SIDEBAR_VISIBLE = "structureMind:sidebarVisible:v1";
       const SS_EXPORT_PNG_AFTER_RELOAD = "structureMind:exportPngAfterReload:v1";
 
       const INDENT = 2; // 2 spacje = poziom
@@ -827,6 +837,40 @@ Temat główny
         const cur = document.documentElement.getAttribute("data-theme") || "auto";
         const next = cur === "auto" ? "dark" : (cur === "dark" ? "light" : "auto");
         setTheme(next);
+      }
+
+      function isSidebarVisible(){
+        return !app.classList.contains("sidebar-collapsed");
+      }
+
+      function setSidebarVisible(visible, persist=true){
+        app.classList.toggle("sidebar-collapsed", !visible);
+        btnToggleSidebar.textContent = visible ? "Ukryj edytor" : "Pokaż edytor";
+        btnToggleSidebar.title = visible ? "Ukryj panel edytora" : "Pokaż panel edytora";
+        btnToggleSidebar.setAttribute("aria-pressed", visible ? "false" : "true");
+        if (persist) localStorage.setItem(LS_SIDEBAR_VISIBLE, visible ? "1" : "0");
+        requestAnimationFrame(() => {
+          updateLinksLive();
+          if (persist && !visible) setStatus("Panel edytora ukryty");
+        });
+      }
+
+      function applySidebarSize(){
+        if (isMobileLayout()){
+          sidebar.style.width = "";
+          const sh = parseInt(localStorage.getItem(LS_SIDEBAR_HEIGHT) || "", 10);
+          if (Number.isFinite(sh)){
+            const maxHeight = Math.max(180, window.innerHeight - 220);
+            sidebar.style.height = clamp(sh, 180, maxHeight) + "px";
+          }
+          return;
+        }
+
+        sidebar.style.height = "";
+        const sw = parseInt(localStorage.getItem(LS_SIDEBAR) || "", 10);
+        if (Number.isFinite(sw) && sw >= 280 && sw <= 920){
+          sidebar.style.width = sw + "px";
+        }
       }
 
       function viewportRect(){ return viewport.getBoundingClientRect(); }
@@ -1850,6 +1894,7 @@ Temat główny
       btnExample.addEventListener("click", setExample);
       btnInsertExample2.addEventListener("click", () => { setExample(); closeHelp(); });
       btnHelp.addEventListener("click", openHelp);
+      btnToggleSidebar.addEventListener("click", () => setSidebarVisible(!isSidebarVisible()));
       btnExportTxt.addEventListener("click", exportTxt);
       btnExportPng.addEventListener("click", requestPngExportWithReload);
       btnCloseHelp.addEventListener("click", closeHelp);
@@ -1924,6 +1969,9 @@ Temat główny
           if (!isMobileLayout()){
             const w = sidebar.getBoundingClientRect().width;
             localStorage.setItem(LS_SIDEBAR, String(Math.round(w)));
+          } else {
+            const h = sidebar.getBoundingClientRect().height;
+            localStorage.setItem(LS_SIDEBAR_HEIGHT, String(Math.round(h)));
           }
         };
 
@@ -1939,10 +1987,8 @@ Temat główny
         const theme = localStorage.getItem(LS_THEME) || "auto";
         setTheme(theme);
 
-        const sw = parseInt(localStorage.getItem(LS_SIDEBAR) || "", 10);
-        if (Number.isFinite(sw) && sw >= 280 && sw <= 920){
-          sidebar.style.width = sw + "px";
-        }
+        applySidebarSize();
+        setSidebarVisible(localStorage.getItem(LS_SIDEBAR_VISIBLE) !== "0", false);
 
         const saved = localStorage.getItem(LS_TEXT);
         if (saved !== null && (preserveSavedText || saved.trim())){
@@ -1960,6 +2006,10 @@ Temat główny
       if (exportPngAfterReload) sessionStorage.removeItem(SS_EXPORT_PNG_AFTER_RELOAD);
 
       loadPersisted(exportPngAfterReload);
+      window.addEventListener("resize", () => {
+        applySidebarSize();
+        updateLinksLive();
+      });
       scheduleRender();
       requestAnimationFrame(() => fitToView());
       if (exportPngAfterReload){
