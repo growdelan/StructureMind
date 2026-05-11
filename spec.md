@@ -11,7 +11,8 @@ Zakres aplikacji obejmuje:
 - ukrywanie i ponowne pokazywanie panelu edytora,
 - kolorowanie poziomów hierarchii w mapie myśli,
 - lokalny zapis źródłowej struktury jako pliku TXT,
-- lokalny zapis pełnej mapy jako pliku PNG.
+- lokalny zapis pełnej mapy jako pliku PNG,
+- utrzymanie kodu aplikacji bez potwierdzonych martwych elementów i nieaktualnych komentarzy technicznych.
 
 Poza zakresem są eksport SVG/PDF, import plików, zapis do chmury, wybór nazwy pliku oraz zewnętrzne usługi lub zależności.
 
@@ -118,6 +119,10 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Uzasadnienie: zachowanie jest spójne z istniejącym lokalnym zapisem ustawień interfejsu, w tym szerokości panelu.
 - Konsekwencje: aplikacja musi przechowywać widoczność panelu w `localStorage`, niezależnie od zapamiętanego rozmiaru panelu.
 
+- Decyzja (dotyczy PRD: 003-code-cleanup-prd.md): techniczne sprzątanie martwego kodu i komentarzy nie zmienia zachowania aplikacji.
+- Uzasadnienie: wykryte elementy są potwierdzonymi pozostałościami implementacyjnymi, a nie częścią funkcjonalności użytkownika.
+- Konsekwencje: zmiany porządkowe muszą być minimalne, ograniczone do wskazanych elementów i potwierdzone smoke testami regresji.
+
 ---
 
 ## Jakość i kryteria akceptacji
@@ -134,6 +139,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Kropki i połączenia na mapie używają kolorów zgodnych z poziomami hierarchii.
 - PNG zawiera te same kolory kropek i połączeń poziomów co widok mapy.
 - Puste stany są blokowane i komunikowane w UI bez wyskakujących alertów.
+- Kod aplikacji nie zawiera potwierdzonych martwych elementów wskazanych w aktualnym PRD porządkowym.
 - Walidacja przeglądarkowa powinna obejmować uruchomienie `index.html` oraz podstawowe przepływy eksportu.
 
 ---
@@ -143,6 +149,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - zmiany architektoniczne → aktualizacja tej specyfikacji
 - nowe zależności → wpis do `## Decyzje techniczne`
 - refactory tylko w ramach aktualnego milestone’u
+- sprzątanie martwego kodu → brak zmian zachowania oraz adekwatna walidacja regresji
 
 ---
 
@@ -154,4 +161,4 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 ## Status specyfikacji
 - Data utworzenia: 2026-05-10
 - Ostatnia aktualizacja: 2026-05-11
-- Aktualny zakres obowiązywania: struktura tekstowa mapy, wizualizacja mapy, ukrywanie panelu edytora, kolorowanie poziomów hierarchii oraz lokalny eksport TXT i PNG.
+- Aktualny zakres obowiązywania: struktura tekstowa mapy, wizualizacja mapy, ukrywanie panelu edytora, kolorowanie poziomów hierarchii, lokalny eksport TXT i PNG oraz techniczne utrzymanie kodu bez potwierdzonych martwych elementów.

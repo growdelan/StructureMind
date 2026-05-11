@@ -124,3 +124,30 @@ Zakres:
 Uwagi:
 - poza zakresem są skróty klawiaturowe, tryb overlay, zwężanie panelu do paska, animowane tryby panelu i nowe zależności
 - implementacja nie może dodawać zewnętrznych zależności
+
+---
+
+## Milestone 4: Sprzątanie martwego kodu i komentarzy technicznych (done)
+
+Cel:
+- usunąć potwierdzone martwe elementy z `index.html`
+- usunąć nieaktualne komentarze implementacyjne `FIX #1` i `FIX #2`
+- zachować dotychczasowe zachowanie aplikacji bez zmian UI, eksportu i interakcji
+
+Definition of Done:
+- pola `interaction.nodeStartX` i `interaction.nodeStartY` są usunięte
+- nieużywane zmienne CSS `--muted2`, `--accent`, `--accent2` i `--indent` są usunięte wraz z wariantami motywów
+- element statusu nadal działa przez klasę `.status`, ale nie ma nieużywanego `id="status"`
+- kod nie ustawia nieużywanego `data-id` dla węzłów mapy
+- komentarze `FIX #1` i `FIX #2` są usunięte
+- nie dodano nowych zależności ani nowych funkcji
+- smoke test statyczny potwierdza brak usuwanych symboli w kodzie aplikacji
+- smoke test przeglądarkowy potwierdza render mapy, ukrywanie panelu, zoom, dopasowanie, centrowanie oraz eksport TXT/PNG
+
+Zakres:
+- minimalne sprzątanie `index.html` zgodnie z PRD `003-code-cleanup-prd.md`
+- weryfikacja braku referencji przed usunięciem elementów
+- walidacja regresji podstawowych przepływów aplikacji
+
+Uwagi:
+- poza zakresem są refaktor architektury, podział pliku `index.html`, zmiany wizualne, zmiany parsera, zmiany eksportów oraz nowe zależności
