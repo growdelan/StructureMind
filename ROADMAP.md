@@ -151,3 +151,35 @@ Zakres:
 
 Uwagi:
 - poza zakresem są refaktor architektury, podział pliku `index.html`, zmiany wizualne, zmiany parsera, zmiany eksportów oraz nowe zależności
+
+---
+
+## Milestone 5: Stabilne renderowanie mapy podczas edycji (done)
+
+Cel:
+- usunąć miganie mapy podczas wpisywania i modyfikowania struktury tekstowej
+- zachować stabilny widok mapy przy dopisywaniu kategorii i podkategorii
+- zachować ręcznie przesunięte pozycje węzłów, jeśli węzły nadal istnieją po edycji
+- zachować prosty, statyczny charakter aplikacji bez zewnętrznych zależności
+
+Definition of Done:
+- dopisywanie tekstu w edytorze nie powoduje migania prawej części ekranu
+- dodanie nowej kategorii albo podkategorii nie powoduje znikania istniejących węzłów
+- zmiana nazwy, usunięcie węzła, `Enter`, `Tab` i wklejenie większej struktury aktualizują mapę bez widocznego czyszczenia całego widoku
+- kamera zachowuje aktualny zoom i przesunięcie podczas zwykłej edycji tekstu
+- nowe węzły dodane podczas edycji pojawiają się bez animacji wejścia
+- ręcznie przesunięty węzeł zachowuje pozycję po edycji tekstu, jeśli nadal istnieje
+- funkcja działa na desktopie i na wąskich ekranach
+- eksport TXT/PNG, kolorowanie poziomów, ukrywanie panelu, zoom, centrowanie i dopasowanie widoku pozostają bez regresji
+- smoke testy stabilnej edycji, ręcznych pozycji i regresji istniejących funkcji przechodzą lokalnie
+
+Zakres:
+- stabilizacja renderowania mapy po zmianach w edytorze tekstu zgodnie z PRD `004-stable-editing-render-prd.md`
+- aktualizacja istniejących elementów mapy bez widocznego czyszczenia całych warstw DOM/SVG przy każdym `input`
+- wyłączenie animacji wejścia dla węzłów dodanych podczas edycji tekstu
+- zachowanie kamery podczas zwykłej edycji tekstu
+- zachowanie ręcznie ustawionych pozycji istniejących węzłów między kolejnymi stanami tekstu
+- walidacja działania na desktopie i mobile oraz regresji eksportu, kolorów, ukrywania panelu i nawigacji mapy
+
+Uwagi:
+- poza zakresem są zmiany parsera wcięć, zmiany formatu tekstu, przełącznik animacji w UI, debouncowanie renderowania mapy, zmiany eksportów oraz nowe zależności

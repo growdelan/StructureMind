@@ -6,6 +6,8 @@
 - Mapa jest renderowana lokalnie bez backendu, sieci i zewnętrznych zależności.
 - Panel edytora można ukryć i ponownie pokazać z topbara mapy; stan widoczności oraz rozmiar panelu są zapamiętywane lokalnie.
 - Poziomy mapy są wyróżniane stałymi kolorami kropek i połączeń, z cyklicznym powtarzaniem palety dla poziomów 7+.
+- Mapa aktualizuje się stabilnie podczas edycji tekstu: dopisywanie, usuwanie, wcinanie i wklejanie węzłów nie czyści całego widoku ani nie resetuje kamery.
+- Ręcznie przesunięte węzły zachowują pozycje po edycji tekstu, jeśli nadal istnieją w strukturze.
 - Eksport TXT zapisuje bieżącą treść edytora do `structuremind-map.txt`.
 - Eksport PNG zapisuje pełną mapę do `structuremind-map.png` z tłem, marginesem `64px` i kolorami poziomów zgodnymi z widokiem.
 - Puste stany eksportu TXT i PNG są blokowane komunikatem w UI.
@@ -18,6 +20,9 @@
 - Milestone 2: kolorowanie poziomów mapy myśli.
 - Milestone 3: ukrywanie lewego panelu edytora.
 - Milestone 4: sprzątanie martwego kodu i komentarzy technicznych.
+- Milestone 5: stabilne renderowanie mapy podczas edycji.
+- Ostatnia walidacja Milestone 5: składnia skryptu, smoke test przeglądarkowy desktop/mobile dla dopisywania węzłów, ukrywanie i przywracanie panelu, zoom, dopasowanie, centrowanie oraz eksport TXT/PNG.
+- Self-review batcha Milestone 5: wykryto i poprawiono jedną drobną regresję wcięcia ostatniej linii przykładu; po poprawce rewalidacja przeszła.
 - Ostatnia walidacja Milestone 4: statyczny check braku usuwanych symboli w `index.html` oraz headless Chromium/Playwright dla renderowania mapy, ukrywania i przywracania panelu, zoomu, dopasowania, centrowania, eksportu TXT/PNG i braku błędów konsoli.
 - Self-review batcha Milestone 4: brak problemów krytycznych.
 - Publikacja GitHub Pages przez workflow `.github/workflows/deploy-pages.yml`.
@@ -44,6 +49,7 @@
 - Publikacja GitHub Pages działa z brancha `main`, zgodnie z regułami środowiska `github-pages`.
 
 ## Ostatnie aktualizacje
+- 2026-05-12: zakończono Milestone 5, dodano PRD `004-stable-editing-render-prd.md`, zaktualizowano dokumentację i ustabilizowano renderowanie mapy podczas edycji tekstu.
 - 2026-05-11: zakończono Milestone 4, dodano PRD `003-code-cleanup-prd.md`, zaktualizowano dokumentację i przeczyszczono potwierdzone martwe elementy oraz komentarze techniczne z `index.html`.
 - 2026-05-11: zakończono Milestone 3, dodano ukrywanie i przywracanie panelu edytora z zapamiętaniem stanu oraz rozmiaru panelu.
 - 2026-05-11: dodano PRD `002-hide-editor-panel-prd.md` oraz zaktualizowano `spec.md` i `ROADMAP.md` dla ukrywania panelu edytora.

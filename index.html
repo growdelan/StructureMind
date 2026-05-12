@@ -772,11 +772,15 @@ Temat główny
       const ROOT_MARGIN = 54;
 
       let renderQueued = false;
+      let nextRenderStable = true;
       let lastTree = null;
       let flatNodes = [];
       let nodeElById = new Map();
+      let nodeElByKey = new Map();
       let pathElByKey = new Map();
       let selectedId = null;
+      let selectedKey = null;
+      let manualNodePositions = new Map();
       let statusTimer = null;
 
       const cam = { x:0, y:0, z:1, tx:0, ty:0, tz:1 };
@@ -893,6 +897,7 @@ Temat główny
 
       function setNodePos(node, x, y){
         node.x = x; node.y = y;
+        if (node.key) manualNodePositions.set(node.key, { x, y });
         const el = nodeElById.get(node.id);
         if (!el) return;
         el.style.setProperty("--x", `${Math.round(x)}px`);
@@ -901,6 +906,7 @@ Temat główny
 
       function setSelected(id){
         selectedId = id;
+        selectedKey = id === null ? null : (flatNodes.find((node) => node.id === id)?.key || null);
         for (const [nid, el] of nodeElById.entries()){
           el.classList.toggle("selected", nid === id);
         }
@@ -937,8 +943,15 @@ Temat główny
           const level = Math.floor(spaces / INDENT);
           const label = raw.trim().replace(/^[-*•]\s+/, "");
 
+          while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+
+          const parent = stack.length ? stack[stack.length - 1] : null;
+          const siblingIndex = parent ? parent.children.length : roots.length;
+          const key = parent ? `${parent.key}/${siblingIndex}` : String(siblingIndex);
+
           const node = {
             id: nodeId++,
+            key,
             text: label,
             level,
             parent: null,
@@ -947,9 +960,8 @@ Temat główny
             lineStart, lineEnd
           };
 
-          while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
-          if (stack.length){
-            node.parent = stack[stack.length - 1];
+          if (parent){
+            node.parent = parent;
             node.parent.children.push(node);
           } else {
             roots.push(node);
@@ -1030,6 +1042,15 @@ Temat główny
         }
       }
 
+      function applyManualPositions(){
+        for (const node of flatNodes){
+          const saved = manualNodePositions.get(node.key);
+          if (!saved) continue;
+          node.x = saved.x;
+          node.y = saved.y;
+        }
+      }
+
       /**********************
        * Rendering
        **********************/
@@ -1037,71 +1058,100 @@ Temat główny
         linksSvg.innerHTML = "";
         nodesLayer.innerHTML = "";
         nodeElById.clear();
+        nodeElByKey.clear();
         pathElByKey.clear();
       }
 
-      function renderNodes(){
+      function updateNodeElement(el, node){
+        const levelColor = getLevelColor(node.level);
+        el.className = `node lvl${Math.min(5, node.level)}`;
+        el.style.setProperty("--level-color", levelColor);
+        el.style.setProperty("--level-color-soft", colorWithAlpha(levelColor, 0.18));
+
+        const label = el.querySelector(".label");
+        const levelText = el.querySelector(".levelText");
+        if (label) label.textContent = node.text;
+        if (levelText) levelText.textContent = `Poziom ${node.level}`;
+
+        el.onpointerdown = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.setPointerCapture(e.pointerId);
+
+          const wp = screenToWorld(e.clientX, e.clientY);
+          interaction.mode = "node";
+          interaction.pointerId = e.pointerId;
+          interaction.startVx = e.clientX;
+          interaction.startVy = e.clientY;
+          interaction.moved = false;
+
+          interaction.nodeId = node.id;
+          interaction.nodeOffX = wp.x - node.x;
+          interaction.nodeOffY = wp.y - node.y;
+
+          el.classList.add("dragging");
+        };
+
+        el.onpointerup = (e) => {
+          if (interaction.mode === "node" && interaction.pointerId === e.pointerId){
+            const wasMoved = interaction.moved;
+            interaction.mode = "none";
+            interaction.pointerId = null;
+            el.classList.remove("dragging");
+
+            if (!wasMoved){
+              setSelected(node.id);
+              focusLine(node);
+            }
+          }
+        };
+      }
+
+      function createNodeElement(){
+        const el = document.createElement("div");
+        el.style.visibility = "hidden";
+        el.style.setProperty("--x", "0px");
+        el.style.setProperty("--y", "0px");
+
+        const label = document.createElement("span");
+        label.className = "label";
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="levelText"></span>`;
+
+        el.appendChild(label);
+        el.appendChild(meta);
+        return el;
+      }
+
+      function renderNodes(stableUpdate){
         const frag = document.createDocumentFragment();
+        const nextNodeElById = new Map();
+        const nextNodeElByKey = new Map();
 
         for (const node of flatNodes){
-          const levelColor = getLevelColor(node.level);
-          const el = document.createElement("div");
-          el.className = `node lvl${Math.min(5, node.level)}`;
-          el.style.visibility = "hidden";
-          el.style.setProperty("--x", "0px");
-          el.style.setProperty("--y", "0px");
-          el.style.setProperty("--level-color", levelColor);
-          el.style.setProperty("--level-color-soft", colorWithAlpha(levelColor, 0.18));
+          let el = nodeElByKey.get(node.key);
+          if (!el){
+            el = createNodeElement();
+            frag.appendChild(el);
+          }
 
-          const label = document.createElement("span");
-          label.className = "label";
-          label.textContent = node.text;
+          updateNodeElement(el, node);
+          if (stableUpdate) el.classList.add("show");
 
-          const meta = document.createElement("div");
-          meta.className = "meta";
-          meta.innerHTML = `<span class="dot" aria-hidden="true"></span><span>Poziom ${node.level}</span>`;
-
-          el.appendChild(label);
-          el.appendChild(meta);
-
-          el.addEventListener("pointerdown", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            el.setPointerCapture(e.pointerId);
-
-            const wp = screenToWorld(e.clientX, e.clientY);
-            interaction.mode = "node";
-            interaction.pointerId = e.pointerId;
-            interaction.startVx = e.clientX;
-            interaction.startVy = e.clientY;
-            interaction.moved = false;
-
-            interaction.nodeId = node.id;
-            interaction.nodeOffX = wp.x - node.x;
-            interaction.nodeOffY = wp.y - node.y;
-
-            el.classList.add("dragging");
-          });
-
-          el.addEventListener("pointerup", (e) => {
-            if (interaction.mode === "node" && interaction.pointerId === e.pointerId){
-              const wasMoved = interaction.moved;
-              interaction.mode = "none";
-              interaction.pointerId = null;
-              el.classList.remove("dragging");
-
-              if (!wasMoved){
-                setSelected(node.id);
-                focusLine(node);
-              }
-            }
-          });
-
-          nodeElById.set(node.id, el);
-          frag.appendChild(el);
+          nextNodeElById.set(node.id, el);
+          nextNodeElByKey.set(node.key, el);
         }
 
-        nodesLayer.appendChild(frag);
+        for (const [key, el] of nodeElByKey.entries()){
+          if (!nextNodeElByKey.has(key)) el.remove();
+        }
+
+        nodeElById = nextNodeElById;
+        nodeElByKey = nextNodeElByKey;
+
+        if (frag.childNodes.length) nodesLayer.appendChild(frag);
       }
 
       function computeWorldBounds(){
@@ -1129,10 +1179,8 @@ Temat główny
       }
 
       function drawLinks(animated=true){
-        linksSvg.innerHTML = "";
-        pathElByKey.clear();
-
         const frag = document.createDocumentFragment();
+        const nextPathElByKey = new Map();
 
         for (const node of flatNodes){
           if (!node.parent) continue;
@@ -1146,42 +1194,60 @@ Temat główny
           const dx = Math.max(60, (x2 - x1) * 0.55);
           const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
           const levelColor = getLevelColor(node.level);
+          const key = `${p.key}->${node.key}`;
+          let pair = pathElByKey.get(key);
+          const isNew = !pair;
 
-          const glow = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          glow.setAttribute("d", d);
-          glow.setAttribute("class", "linkPath glow");
-          glow.style.stroke = colorWithAlpha(levelColor, 0.20);
-          frag.appendChild(glow);
+          if (!pair){
+            const glow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            glow.setAttribute("class", "linkPath glow");
 
-          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          path.setAttribute("d", d);
-          path.setAttribute("class", "linkPath");
-          path.style.stroke = colorWithAlpha(levelColor, 0.78);
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("class", "linkPath");
 
-          if (animated){
+            pair = { path, glow };
+            frag.appendChild(glow);
+            frag.appendChild(path);
+          }
+
+          pair.glow.setAttribute("d", d);
+          pair.glow.style.stroke = colorWithAlpha(levelColor, 0.20);
+          pair.path.setAttribute("d", d);
+          pair.path.style.stroke = colorWithAlpha(levelColor, 0.78);
+          pair.path.style.strokeDasharray = "";
+          pair.path.style.strokeDashoffset = "";
+          pair.path.style.transition = "";
+          pair.path.style.opacity = "";
+
+          if (animated && isNew){
             const length = 600;
-            path.style.strokeDasharray = String(length);
-            path.style.strokeDashoffset = String(length);
-            path.style.transition = "stroke-dashoffset 650ms cubic-bezier(.2,.8,.2,1), opacity 350ms ease";
-            path.style.opacity = "0.9";
+            pair.path.style.strokeDasharray = String(length);
+            pair.path.style.strokeDashoffset = String(length);
+            pair.path.style.transition = "stroke-dashoffset 650ms cubic-bezier(.2,.8,.2,1), opacity 350ms ease";
+            pair.path.style.opacity = "0.9";
 
             raf(() => {
               try{
-                const realLen = path.getTotalLength();
-                path.style.strokeDasharray = String(realLen);
-                path.style.strokeDashoffset = String(realLen);
-                raf(() => { path.style.strokeDashoffset = "0"; path.style.opacity = "1"; });
+                const realLen = pair.path.getTotalLength();
+                pair.path.style.strokeDasharray = String(realLen);
+                pair.path.style.strokeDashoffset = String(realLen);
+                raf(() => { pair.path.style.strokeDashoffset = "0"; pair.path.style.opacity = "1"; });
               } catch {}
             });
           }
 
-          frag.appendChild(path);
-
-          const key = `${p.id}->${node.id}`;
-          pathElByKey.set(key, { path, glow });
+          nextPathElByKey.set(key, pair);
         }
 
-        linksSvg.appendChild(frag);
+        for (const [key, pair] of pathElByKey.entries()){
+          if (!nextPathElByKey.has(key)){
+            pair.path.remove();
+            pair.glow.remove();
+          }
+        }
+
+        pathElByKey = nextPathElByKey;
+        if (frag.childNodes.length) linksSvg.appendChild(frag);
       }
 
       function updateLinksLive(){
@@ -1196,7 +1262,7 @@ Temat główny
           const dx = Math.max(60, (x2 - x1) * 0.55);
 
           const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-          const key = `${p.id}->${node.id}`;
+          const key = `${p.key}->${node.key}`;
           const pair = pathElByKey.get(key);
           if (pair){
             pair.path.setAttribute("d", d);
@@ -1205,7 +1271,23 @@ Temat główny
         }
       }
 
-      function showNodes(){
+      function showNodes(stableUpdate){
+        if (stableUpdate){
+          for (const node of flatNodes){
+            const el = nodeElById.get(node.id);
+            if (!el) continue;
+            el.style.transition = "none";
+            el.style.visibility = "visible";
+            el.style.setProperty("--x", `${Math.round(node.x)}px`);
+            el.style.setProperty("--y", `${Math.round(node.y)}px`);
+            el.classList.add("show");
+          }
+          raf(() => {
+            for (const el of nodeElById.values()) el.style.transition = "";
+          });
+          return;
+        }
+
         raf(() => {
           for (const node of flatNodes){
             const el = nodeElById.get(node.id);
@@ -1221,7 +1303,9 @@ Temat główny
       }
 
       function renderMindMap(){
+        const stableUpdate = nextRenderStable && lastTree !== null;
         renderQueued = false;
+        nextRenderStable = true;
 
         const text = editor.value || "";
         const roots = buildTree(text);
@@ -1230,9 +1314,8 @@ Temat główny
         flatNodes = flatten(roots);
         statsText.textContent = flatNodes.length ? `Węzły: ${flatNodes.length}` : "Wpisz strukturę, aby zobaczyć mapę";
 
-        clearMap();
-
         if (!flatNodes.length){
+          clearMap();
           world.style.width = "800px";
           world.style.height = "600px";
           linksSvg.setAttribute("width", "800");
@@ -1241,18 +1324,26 @@ Temat główny
           return;
         }
 
-        renderNodes();
+        renderNodes(stableUpdate);
         measureNodes();
         layoutAll(roots);
+        applyManualPositions();
         ensureWorldSize();
-        drawLinks(true);
-        showNodes();
+        drawLinks(!stableUpdate);
+        showNodes(stableUpdate);
 
-        if (selectedId !== null && nodeElById.has(selectedId)) setSelected(selectedId);
-        else selectedId = null;
+        if (selectedKey && nodeElByKey.has(selectedKey)){
+          const selectedNode = flatNodes.find((node) => node.key === selectedKey);
+          setSelected(selectedNode ? selectedNode.id : null);
+        } else if (selectedId !== null && nodeElById.has(selectedId)) {
+          setSelected(selectedId);
+        } else {
+          setSelected(null);
+        }
       }
 
-      function scheduleRender(){
+      function scheduleRender(stable=true){
+        if (!stable) nextRenderStable = false;
         if (renderQueued) return;
         renderQueued = true;
         requestAnimationFrame(renderMindMap);
@@ -1870,7 +1961,7 @@ Temat główny
     Ryzyka
     Założenia
     Kolejne kroki`;
-        scheduleRender();
+        scheduleRender(false);
         debounceSave();
         raf(() => fitToView());
       }
@@ -1997,7 +2088,7 @@ Temat główny
         applySidebarSize();
         updateLinksLive();
       });
-      scheduleRender();
+      scheduleRender(false);
       requestAnimationFrame(() => fitToView());
       if (exportPngAfterReload){
         requestAnimationFrame(() => {

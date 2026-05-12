@@ -8,6 +8,7 @@ Projekt jest przeznaczony dla osób, które chcą szybko zaplanować, uporządko
 Zakres aplikacji obejmuje:
 - wpisywanie i edycję tekstowej struktury mapy,
 - wizualizację pełnej mapy myśli,
+- stabilną aktualizację mapy podczas edycji tekstu bez migania i resetowania widoku,
 - ukrywanie i ponowne pokazywanie panelu edytora,
 - kolorowanie poziomów hierarchii w mapie myśli,
 - lokalny zapis źródłowej struktury jako pliku TXT,
@@ -21,6 +22,7 @@ Poza zakresem są eksport SVG/PDF, import plików, zapis do chmury, wybór nazwy
 ## Zakres funkcjonalny (high-level)
 Kluczowe use-case’y:
 - użytkownik wpisuje strukturę tekstową z wcięciami i widzi odpowiadającą jej mapę myśli,
+- użytkownik dopisuje, usuwa, wcina i wkleja węzły bez migania mapy oraz bez resetowania aktualnego widoku,
 - użytkownik szybciej rozpoznaje poziomy zagnieżdżenia dzięki kolorom kropek i połączeń,
 - użytkownik dopracowuje wygląd i układ mapy w aktualnym interfejsie,
 - użytkownik ukrywa panel edytora, aby skupić się na mapie i wykorzystać pełną przestrzeń aplikacji,
@@ -28,7 +30,9 @@ Kluczowe use-case’y:
 - użytkownik zapisuje pełną mapę do pliku `structuremind-map.png`.
 
 Główne przepływy użytkownika:
-- wpisanie lub zmiana tekstu w edytorze aktualizuje mapę,
+- wpisanie lub zmiana tekstu w edytorze aktualizuje mapę natychmiast i stabilnie, bez widocznego czyszczenia całego widoku,
+- nowe węzły pojawiają się podczas edycji bez animacji wejścia, a istniejące węzły pozostają widoczne,
+- ręcznie przesunięte węzły zachowują pozycje po edycji tekstu, jeśli nadal istnieją w strukturze,
 - każdy poziom wcięcia otrzymuje spójny kolor kropki i połączenia prowadzącego do węzła,
 - kliknięcie `Ukryj edytor` chowa panel edytora i uchwyt zmiany rozmiaru, a mapa zajmuje dostępną przestrzeń,
 - kliknięcie `Pokaż edytor` przywraca panel edytora w poprzednim rozmiarze,
@@ -46,6 +50,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 1. Główne komponenty systemu
    - edytor tekstowy struktury mapy,
    - renderer mapy myśli,
+   - mechanizm stabilnej aktualizacji renderu podczas edycji,
    - reguła kolorowania poziomów hierarchii,
    - kontrola widoczności panelu edytora,
    - warstwa interakcji użytkownika,
@@ -56,7 +61,8 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 2. Przepływ danych między komponentami
    - użytkownik wpisuje tekst w edytorze,
    - aplikacja interpretuje tekst jako hierarchię węzłów,
-   - renderer prezentuje mapę w widoku i przypisuje kolory na podstawie poziomu węzła,
+   - renderer prezentuje mapę w widoku, przypisuje kolory na podstawie poziomu węzła i aktualizuje istniejące elementy bez migania podczas edycji,
+   - podczas edycji kamera zachowuje aktualny zoom i przesunięcie, a ręcznie przesunięte węzły są zachowywane, jeśli nadal istnieją,
    - użytkownik może przełączyć widoczność panelu edytora bez zmiany treści mapy,
    - eksport TXT korzysta bezpośrednio z bieżącej wartości edytora,
    - eksport PNG korzysta z aktualnie wyrenderowanej pełnej mapy, jej wyglądu i reguły kolorowania poziomów,
@@ -64,7 +70,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 
 3. Granice odpowiedzialności
    - edytor odpowiada za źródłową strukturę tekstową,
-   - renderer odpowiada za wizualną reprezentację mapy, w tym kolory kropek i połączeń poziomów,
+   - renderer odpowiada za wizualną reprezentację mapy, w tym stabilną aktualizację podczas edycji oraz kolory kropek i połączeń poziomów,
    - kontrola widoczności panelu odpowiada za ukrycie lub pokazanie edytora i uchwytu zmiany rozmiaru bez modyfikowania danych mapy,
    - eksport TXT odpowiada za pobranie dokładnej treści edytora bez modyfikacji,
    - eksport PNG odpowiada za obraz pełnej mapy z tłem, marginesem i kolorami poziomów zgodnymi z widokiem,
@@ -77,6 +83,7 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Edytor struktury: przechowuje bieżącą treść mapy i stan wejściowy dla renderowania oraz eksportu TXT.
 - Parser struktury: interpretuje tekst z wcięciami jako hierarchię węzłów mapy.
 - Renderer mapy: tworzy wizualną mapę z węzłami, połączeniami, tłem, aktualnym motywem i kolorami poziomów.
+- Stabilna aktualizacja renderu: aktualizuje mapę podczas edycji tekstu bez widocznego czyszczenia całych warstw, bez resetowania kamery i bez odtwarzania animacji wejścia dla węzłów dodanych w trakcie pisania.
 - Reguła kolorów poziomów: przypisuje poziomowi 0 kolor turkusowy, poziomom 1-6 stałą paletę kolorów, a poziomom 7+ kolory powtarzane cyklicznie od poziomu 1.
 - Kontrolki UI: obsługują akcje użytkownika, w tym przyciski `Ukryj edytor` / `Pokaż edytor`, `Zapisz TXT` i `Zapisz PNG`.
 - Kontrola widoczności panelu: chowa lub pokazuje panel edytora razem z uchwytem zmiany rozmiaru oraz zapamiętuje ostatni stan w `localStorage`.
@@ -123,6 +130,14 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - Uzasadnienie: wykryte elementy są potwierdzonymi pozostałościami implementacyjnymi, a nie częścią funkcjonalności użytkownika.
 - Konsekwencje: zmiany porządkowe muszą być minimalne, ograniczone do wskazanych elementów i potwierdzone smoke testami regresji.
 
+- Decyzja (dotyczy PRD: 004-stable-editing-render-prd.md): edycja tekstu aktualizuje mapę stabilnie, bez widocznego czyszczenia całych warstw DOM/SVG.
+- Uzasadnienie: użytkownik potrzebuje stałego obszaru roboczego podczas pisania, a miganie mapy przy każdym nowym węźle rozprasza i pogarsza komfort edycji.
+- Konsekwencje: renderer powinien preferować ponowne użycie istniejących elementów mapy podczas `input`, zachować kamerę i nie odtwarzać animacji wejścia dla węzłów dodanych w trakcie edycji.
+
+- Decyzja (dotyczy PRD: 004-stable-editing-render-prd.md): ręcznie przesunięte węzły zachowują pozycje po edycji tekstu, jeśli nadal istnieją w strukturze.
+- Uzasadnienie: użytkownik może dopracować układ mapy ręcznie i nie powinien tracić tej pracy przy dalszym dopisywaniu albo zmianie nazw węzłów.
+- Konsekwencje: implementacja stabilnego renderowania musi identyfikować istniejące węzły między kolejnymi stanami tekstu na tyle spójnie, aby przenosić ich ręczne pozycje bez zmiany formatu wejściowego.
+
 ---
 
 ## Jakość i kryteria akceptacji
@@ -138,6 +153,8 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 - PNG zawiera aktualny wygląd mapy, tło i margines `64px`.
 - Kropki i połączenia na mapie używają kolorów zgodnych z poziomami hierarchii.
 - PNG zawiera te same kolory kropek i połączeń poziomów co widok mapy.
+- Edycja tekstu aktualizuje mapę bez migania, resetowania kamery i znikania istniejących węzłów.
+- Ręcznie przesunięte węzły zachowują pozycje po edycji tekstu, jeśli nadal istnieją.
 - Puste stany są blokowane i komunikowane w UI bez wyskakujących alertów.
 - Kod aplikacji nie zawiera potwierdzonych martwych elementów wskazanych w aktualnym PRD porządkowym.
 - Walidacja przeglądarkowa powinna obejmować uruchomienie `index.html` oraz podstawowe przepływy eksportu.
@@ -160,5 +177,5 @@ Architektura pozostaje statyczna i lokalna. Głównym entrypointem jest `index.h
 
 ## Status specyfikacji
 - Data utworzenia: 2026-05-10
-- Ostatnia aktualizacja: 2026-05-11
-- Aktualny zakres obowiązywania: struktura tekstowa mapy, wizualizacja mapy, ukrywanie panelu edytora, kolorowanie poziomów hierarchii, lokalny eksport TXT i PNG oraz techniczne utrzymanie kodu bez potwierdzonych martwych elementów.
+- Ostatnia aktualizacja: 2026-05-12
+- Aktualny zakres obowiązywania: struktura tekstowa mapy, stabilna wizualizacja mapy podczas edycji, ukrywanie panelu edytora, kolorowanie poziomów hierarchii, lokalny eksport TXT i PNG oraz techniczne utrzymanie kodu bez potwierdzonych martwych elementów.
